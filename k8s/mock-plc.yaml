@@ -21,7 +21,7 @@ spec:
         args:
           - --bind=0.0.0.0
           - --port=5502
-          - --registers=4001:2500,4002:1200
+          - --registers=4001:2500,4002:1200,4003:0
           - --chaos
           - --chaos-interval=30
           - --max-drift=500

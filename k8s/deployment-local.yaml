@@ -16,10 +16,22 @@ spec:
         app: setpoint-operator
     spec:
       serviceAccountName: setpoint-operator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
       containers:
         - name: setpoint
           image: setpoint-operator:latest
           imagePullPolicy: Never
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: metrics
               containerPort: 8080
@@ -43,6 +55,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           resources:
             limits:
               cpu: 500m

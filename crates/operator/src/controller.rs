@@ -1,6 +1,6 @@
 use crate::crd::{IndustrialPLC, IndustrialPLCStatus, RemediationStrategy};
 use crate::metrics::OperatorMetrics;
-use crate::plc_client::PLCClient;
+use crate::plc_client::{build_adapter, PLCAdapter};
 use chrono::{DateTime, Utc};
 use kube::api::{Api, Patch, PatchParams};
 use kube::runtime::controller::Action;
@@ -24,9 +24,19 @@ pub struct Context {
 /// Loops over each register in the spec, reads its current value, compares
 /// to the desired value, and applies the per-register remediation policy.
 pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Action, Error> {
-    let start = Instant::now();
     let name = plc.name_any();
     let namespace = plc.namespace().unwrap_or_default();
+
+    // Check if we are the leader
+    if !crate::leader::is_leader() {
+        info!(
+            "Not the lease leader, skipping reconciliation for PLC: {}/{}",
+            namespace, name
+        );
+        return Ok(Action::requeue(Duration::from_secs(10)));
+    }
+
+    let start = Instant::now();
 
     info!(
         "Reconciling PLC: {}/{} ({} register(s))",
@@ -36,6 +46,46 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
     );
 
     let api: Api<IndustrialPLC> = Api::namespaced(ctx.client.clone(), &namespace);
+    let finalizer_name = "setpoint.io/finalizer";
+
+    // 1. Check if the object is being deleted
+    if let Some(_deletion_timestamp) = &plc.metadata.deletion_timestamp {
+        info!("Deleting PLC resource: {}/{}", namespace, name);
+        
+        // Log a final zero-trust audit block documenting deletion
+        let audit_block = crate::crypto::generate_audit_block(
+            name.clone(),
+            Vec::new(),
+            "Deleted".to_string(),
+        );
+        info!("Zero-Trust deletion audit block generated: hash={}", audit_block.hash);
+        
+        // Remove the finalizer
+        let mut finalizers = plc.metadata.finalizers.clone().unwrap_or_default();
+        if let Some(pos) = finalizers.iter().position(|f| f == finalizer_name) {
+            finalizers.remove(pos);
+            let patch = serde_json::json!({
+                "metadata": {
+                    "finalizers": finalizers
+                }
+            });
+            api.patch(&name, &PatchParams::default(), &Patch::Merge(patch)).await.map_err(Error::Kube)?;
+        }
+        return Ok(Action::await_change());
+    }
+
+    // 2. Ensure our finalizer is registered if not being deleted
+    let mut finalizers = plc.metadata.finalizers.clone().unwrap_or_default();
+    if !finalizers.iter().any(|f| f == finalizer_name) {
+        finalizers.push(finalizer_name.to_string());
+        let patch = serde_json::json!({
+            "metadata": {
+                "finalizers": finalizers
+            }
+        });
+        api.patch(&name, &PatchParams::default(), &Patch::Merge(patch)).await.map_err(Error::Kube)?;
+    }
+
     let mut status = plc
         .status
         .clone()
@@ -61,7 +111,7 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
     }
 
     // Create PLC client
-    let plc_client = PLCClient::new(&plc.spec.device_address, plc.spec.port);
+    let plc_client = build_adapter(&plc.spec.protocol, plc.spec.device_address.clone(), plc.spec.port);
     let recorder = Recorder::new(
         ctx.client.clone(),
         ctx.reporter.clone(),
@@ -87,7 +137,7 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
         if let Err(e) = reconcile_register(
             &name,
             register_spec,
-            &plc_client,
+            plc_client.as_ref(),
             &mut status,
             &recorder,
             &ctx.metrics,
@@ -100,6 +150,42 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
             );
         }
     }
+
+    // Create cryptographic audit block
+    let mut audit_registers = Vec::new();
+    for r_spec in &plc.spec.registers {
+        let current_val = status.register(&r_spec.name).and_then(|r| r.current_value);
+        let strategy_str = match r_spec.remediation.strategy {
+            RemediationStrategy::Auto => "Auto",
+            RemediationStrategy::Alert => "Alert",
+            RemediationStrategy::Halt => "Halt",
+        }.to_string();
+
+        audit_registers.push(crate::crypto::RegisterAuditState {
+            name: r_spec.name.clone(),
+            address: r_spec.address,
+            desired_value: r_spec.desired_value,
+            current_value: current_val,
+            strategy: strategy_str,
+        });
+    }
+
+    let action_taken = if status.registers.iter().any(|r| !r.in_sync) {
+        "DriftDetected".to_string()
+    } else {
+        "Reconciled".to_string()
+    };
+
+    let audit_block = crate::crypto::generate_audit_block(
+        name.clone(),
+        audit_registers,
+        action_taken,
+    );
+
+    info!(
+        "Cryptographic Audit Block generated: hash={}, prev_hash={}, signature={}",
+        audit_block.hash, audit_block.prev_hash, audit_block.signature
+    );
 
     // Persist status
     update_status(&api, &name, status).await?;
@@ -124,7 +210,7 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
 async fn reconcile_register(
     plc_name: &str,
     register_spec: &crate::crd::RegisterSpec,
-    plc_client: &PLCClient,
+    plc_client: &dyn PLCAdapter,
     status: &mut IndustrialPLCStatus,
     recorder: &Recorder,
     metrics: &OperatorMetrics,
@@ -136,45 +222,109 @@ async fn reconcile_register(
     let current = plc_client.read_register(register_spec.address).await?;
     metrics.set_register_value(plc_name, reg_name, current);
 
-    info!(
-        "PLC '{}' register '{}' @{}: current={}, desired={}, strategy={}",
-        plc_name,
-        reg_name,
-        register_spec.address,
-        current,
-        register_spec.desired_value,
-        strategy_label
-    );
-
-    if current == register_spec.desired_value {
-        status.mark_synced(reg_name, current);
-        return Ok(());
+    // 1. Gather all historical/rolling values for context
+    let mut last_correction_at = None;
+    let mut corrections_last_hour = 0;
+    
+    if let Some(rs) = status.register(reg_name) {
+        if let Some(last_ts) = &rs.last_correction_at {
+            if let Ok(last) = DateTime::parse_from_rfc3339(last_ts) {
+                last_correction_at = Some(last.with_timezone(&Utc));
+            }
+        }
+        
+        // Count rolling corrections in the last hour
+        let cutoff = Utc::now() - chrono::Duration::hours(1);
+        corrections_last_hour = rs.recent_corrections
+            .iter()
+            .filter(|c| {
+                if let Ok(dt) = DateTime::parse_from_rfc3339(&c.timestamp) {
+                    dt.with_timezone(&Utc) > cutoff
+                } else {
+                    false
+                }
+            })
+            .count() as u32;
     }
 
-    // Drift detected
-    metrics.record_drift(plc_name, reg_name, strategy_label);
-    status.mark_drift(reg_name, register_spec.desired_value, current);
+    let ctx = crate::policy::PolicyContext {
+        plc_name: plc_name.to_string(),
+        register_name: reg_name.clone(),
+        desired_value: register_spec.desired_value,
+        current_value: current,
+        strategy: strategy.clone(),
+        last_correction_at,
+        corrections_last_hour,
+        max_corrections_per_hour: register_spec.remediation.max_corrections_per_hour,
+        cooldown_secs: register_spec.remediation.cooldown_secs,
+    };
 
-    recorder
-        .publish(Event {
-            type_: EventType::Warning,
-            reason: "DriftDetected".to_string(),
-            note: Some(format!(
-                "Register '{}' (addr {}) drifted: desired={}, actual={}, strategy={}",
-                reg_name,
-                register_spec.address,
-                register_spec.desired_value,
-                current,
-                strategy_label
-            )),
-            action: "Reconcile".to_string(),
-            secondary: None,
-        })
-        .await
-        .ok();
+    // 2. Evaluate decision using PolicyEngine
+    let decision = crate::policy::PolicyEngine::evaluate(&ctx);
 
-    match strategy {
-        RemediationStrategy::Auto => {
+    info!(
+        "PLC '{}' register '{}' @{}: current={}, desired={}, strategy={}. Decision = {:?}",
+        plc_name, reg_name, register_spec.address, current, register_spec.desired_value, strategy_label, decision
+    );
+
+    // 3. Act on Decision
+    match decision {
+        crate::policy::PolicyDecision::NoOp { .. } => {
+            status.mark_synced(reg_name, current);
+        }
+        crate::policy::PolicyDecision::DetectOnly { reason } => {
+            metrics.record_drift(plc_name, reg_name, strategy_label);
+            status.mark_drift(reg_name, register_spec.desired_value, current);
+
+            recorder
+                .publish(Event {
+                    type_: EventType::Warning,
+                    reason: "DriftDetected".to_string(),
+                    note: Some(reason),
+                    action: "Reconcile".to_string(),
+                    secondary: None,
+                })
+                .await
+                .ok();
+        }
+        crate::policy::PolicyDecision::Halt { reason } => {
+            metrics.record_drift(plc_name, reg_name, strategy_label);
+            status.mark_drift(reg_name, register_spec.desired_value, current);
+            status.set_error(reason.clone());
+
+            recorder
+                .publish(Event {
+                    type_: EventType::Warning,
+                    reason: "HaltTriggered".to_string(),
+                    note: Some(reason),
+                    action: "Reconcile".to_string(),
+                    secondary: None,
+                })
+                .await
+                .ok();
+        }
+        crate::policy::PolicyDecision::Skip { reason } => {
+            warn!(
+                "PLC '{}' register '{}' correction skipped: {}",
+                plc_name, reg_name, reason
+            );
+            status.mark_drift(reg_name, register_spec.desired_value, current);
+        }
+        crate::policy::PolicyDecision::Correct { desired_value, reason } => {
+            metrics.record_drift(plc_name, reg_name, strategy_label);
+            status.mark_drift(reg_name, desired_value, current);
+
+            recorder
+                .publish(Event {
+                    type_: EventType::Warning,
+                    reason: "DriftDetected".to_string(),
+                    note: Some(reason),
+                    action: "Reconcile".to_string(),
+                    secondary: None,
+                })
+                .await
+                .ok();
+
             apply_auto_correction(
                 plc_name,
                 register_spec,
@@ -185,22 +335,6 @@ async fn reconcile_register(
             )
             .await?;
         }
-        RemediationStrategy::Alert => {
-            info!(
-                "PLC '{}' register '{}' drift detected; Alert strategy, no correction",
-                plc_name, reg_name
-            );
-        }
-        RemediationStrategy::Halt => {
-            warn!(
-                "PLC '{}' register '{}' drift detected; Halt strategy, marking PLC Failed",
-                plc_name, reg_name
-            );
-            status.set_error(format!(
-                "Halt: register '{}' drifted to {} (desired {})",
-                reg_name, current, register_spec.desired_value
-            ));
-        }
     }
 
     Ok(())
@@ -209,43 +343,12 @@ async fn reconcile_register(
 async fn apply_auto_correction(
     plc_name: &str,
     register_spec: &crate::crd::RegisterSpec,
-    plc_client: &PLCClient,
+    plc_client: &dyn PLCAdapter,
     status: &mut IndustrialPLCStatus,
     recorder: &Recorder,
     metrics: &OperatorMetrics,
 ) -> Result<(), Error> {
     let reg_name = &register_spec.name;
-    let cooldown = register_spec.remediation.cooldown_secs;
-    let max_per_hour = register_spec.remediation.max_corrections_per_hour;
-
-    // Cooldown check
-    if let Some(rs) = status.register(reg_name) {
-        if let Some(last_ts) = &rs.last_correction_at {
-            if let Ok(last) = DateTime::parse_from_rfc3339(last_ts) {
-                let elapsed = (Utc::now() - last.with_timezone(&Utc)).num_seconds();
-                if elapsed < cooldown as i64 {
-                    info!(
-                        "PLC '{}' register '{}' cooldown active ({}s < {}s), skipping correction",
-                        plc_name, reg_name, elapsed, cooldown
-                    );
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    // Max corrections per hour check
-    if max_per_hour > 0 {
-        if let Some(rs) = status.register(reg_name) {
-            if rs.corrections_applied >= max_per_hour {
-                warn!(
-                    "PLC '{}' register '{}' reached max corrections/hour ({}), skipping",
-                    plc_name, reg_name, max_per_hour
-                );
-                return Ok(());
-            }
-        }
-    }
 
     status.mark_correcting(reg_name);
 

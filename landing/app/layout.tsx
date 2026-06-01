@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,6 +12,9 @@ export const metadata: Metadata = {
       "Reconcile Modbus registers like you reconcile manifests. Per-register remediation. Verified by a one-command proof.",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
   themeColor: "#09090b",
 };
 
@@ -22,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-ink-950 text-ink-100 antialiased">
+      <body className="bg-ink-950 text-ink-100 antialiased font-sans">
         {children}
         <div className="noise" aria-hidden="true" />
       </body>

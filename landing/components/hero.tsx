@@ -37,20 +37,20 @@ export function Hero() {
           </h1>
 
           <p className="mt-5 max-w-[42ch] text-pretty text-base leading-relaxed text-ink-300 md:text-lg">
-            Setpoint is a Kubernetes operator that watches Modbus registers and reconciles them like Argo CD reconciles manifests. One YAML, one source of truth, one audit log.
+            Setpoint is a Kubernetes operator that reconciles industrial Modbus PLCs as first-class resources with machine-checkable behavior.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
               href="https://github.com/apinzon/setpoint-operator"
-              className="group inline-flex items-center gap-2 rounded-pill bg-arc-500 px-5 py-2.5 text-sm font-medium text-ink-950 transition-transform hover:-translate-y-px glow-arc"
+              className="group inline-flex items-center gap-2 rounded-pill bg-arc-500 px-5 py-2.5 text-sm font-medium text-ink-950 transition hover:-translate-y-px hover:shadow-[0_0_20px_rgba(0,212,255,0.4)] active:scale-[0.98] active:translate-y-0 duration-200 ease-out glow-arc"
             >
               View on GitHub
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </a>
             <a
               href="#proof"
-              className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/50 px-5 py-2.5 text-sm text-ink-200 transition-colors hover:border-ink-500 hover:text-ink-50"
+              className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/50 px-5 py-2.5 text-sm text-ink-200 transition hover:border-ink-500 hover:text-ink-50 active:scale-[0.98] duration-200 ease-out"
             >
               See the proof
             </a>

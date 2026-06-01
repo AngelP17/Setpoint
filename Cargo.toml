@@ -5,6 +5,7 @@ members = [
     "crates/setpointctl",
     "crates/mock-plc",
     "crates/drift-simulator",
+    "crates/api",
 ]
 
 [workspace.package]

@@ -26,6 +26,10 @@ pub struct IndustrialPLCSpec {
     #[serde(default = "default_port")]
     pub port: u16,
 
+    /// Protocol to communicate with the PLC (default: ModbusTCP)
+    #[serde(default)]
+    pub protocol: PLCProtocol,
+
     /// The set of registers to monitor and reconcile on this PLC.
     /// Each register has its own address, desired value, and remediation policy.
     pub registers: Vec<RegisterSpec>,
@@ -33,6 +37,14 @@ pub struct IndustrialPLCSpec {
     /// Tags for categorization
     #[serde(default)]
     pub tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
+pub enum PLCProtocol {
+    #[default]
+    ModbusTCP,
+    OpcUa,
+    EtherNetIP,
 }
 
 fn default_port() -> u16 {
@@ -55,6 +67,21 @@ pub struct RegisterSpec {
 
     /// Desired value for this register
     pub desired_value: u16,
+
+    /// Safe minimum value
+    pub min_value: Option<u16>,
+
+    /// Safe maximum value
+    pub max_value: Option<u16>,
+
+    /// Industrial unit (e.g. "rpm", "C", "bar")
+    pub unit: Option<String>,
+
+    /// Deadband value (tolerance limit for drift)
+    pub deadband: Option<u16>,
+
+    /// Register criticality (SafetyCritical | High | Medium | Low)
+    pub criticality: Option<String>,
 
     /// Remediation policy for drift on this register
     #[serde(default)]
@@ -157,6 +184,10 @@ pub struct RegisterStatus {
     /// Number of successful corrections on this register
     pub corrections_applied: u32,
 
+    /// List of recent corrections applied within the last hour
+    #[serde(default)]
+    pub recent_corrections: Vec<CorrectionRecord>,
+
     /// RFC3339 timestamp of the last drift event
     pub last_drift_at: Option<String>,
 
@@ -165,6 +196,13 @@ pub struct RegisterStatus {
 
     /// Remediation strategy in effect
     pub strategy: RemediationStrategy,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CorrectionRecord {
+    pub timestamp: String,
+    pub value: u16,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema, PartialEq)]
@@ -265,7 +303,12 @@ impl IndustrialPLCStatus {
     pub fn mark_corrected(&mut self, name: &str, value: u16) {
         if let Some(r) = self.register_mut(name) {
             r.corrections_applied += 1;
-            r.last_correction_at = Some(chrono::Utc::now().to_rfc3339());
+            let now = chrono::Utc::now().to_rfc3339();
+            r.last_correction_at = Some(now.clone());
+            r.recent_corrections.push(CorrectionRecord {
+                timestamp: now,
+                value,
+            });
         }
         self.mark_synced(name, value);
     }
@@ -288,6 +331,7 @@ impl Default for RegisterStatus {
             in_sync: true,
             drift_events: 0,
             corrections_applied: 0,
+            recent_corrections: Vec::new(),
             last_drift_at: None,
             last_correction_at: None,
             strategy: RemediationStrategy::default(),
@@ -303,11 +347,17 @@ mod tests {
         IndustrialPLCSpec {
             device_address: "10.0.0.5".into(),
             port: 502,
+            protocol: PLCProtocol::ModbusTCP,
             registers: vec![
                 RegisterSpec {
                     name: "conveyor-speed".into(),
                     address: 4001,
                     desired_value: 2500,
+                    min_value: None,
+                    max_value: None,
+                    unit: None,
+                    deadband: None,
+                    criticality: None,
                     remediation: RemediationPolicy {
                         strategy: RemediationStrategy::Auto,
                         poll_interval_secs: 5,
@@ -319,6 +369,11 @@ mod tests {
                     name: "print-head-position".into(),
                     address: 4002,
                     desired_value: 1200,
+                    min_value: None,
+                    max_value: None,
+                    unit: None,
+                    deadband: None,
+                    criticality: None,
                     remediation: RemediationPolicy {
                         strategy: RemediationStrategy::Alert,
                         poll_interval_secs: 5,

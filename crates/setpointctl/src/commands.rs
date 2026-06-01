@@ -46,6 +46,13 @@ pub enum Commands {
         force: bool,
     },
 
+    /// Preview reconciliation dry-run plan
+    Plan {
+        /// Path to the local YAML manifest file
+        #[arg(short, long)]
+        file: String,
+    },
+
     /// Watch PLC status in real-time
     Watch {
         /// Refresh interval in seconds
@@ -322,3 +329,113 @@ pub async fn cmd_version() -> Result<()> {
 
     Ok(())
 }
+
+/// Execute the plan command (pre-flight dry-run reconciliation)
+pub async fn cmd_plan(file_path: &str) -> Result<i32> {
+    use std::fs::File;
+    use operator::plc_client::build_adapter;
+    use operator::crd::{IndustrialPLC, RemediationStrategy};
+    use anyhow::Context;
+
+    println!("{} Loading local manifest from {}...", "🔍".cyan(), file_path.bold());
+    let f = File::open(file_path).with_context(|| format!("Failed to open manifest file: {}", file_path))?;
+    let plc: IndustrialPLC = serde_yaml::from_reader(f).with_context(|| "Failed to parse YAML manifest as IndustrialPLC")?;
+
+    println!(
+        "{} Target PLC: {} @ {}:{}",
+        "🔌".cyan(),
+        plc.metadata.name.as_deref().unwrap_or("unnamed").bold(),
+        plc.spec.device_address,
+        plc.spec.port
+    );
+
+    let plc_client = build_adapter(&plc.spec.protocol, plc.spec.device_address.clone(), plc.spec.port);
+    
+    println!("{}", "Checking connectivity...".dimmed());
+    match plc_client.health_check().await {
+        Ok(true) => {
+            println!("{} PLC is reachable. Reading registers...", "✓".green());
+        }
+        Ok(false) | Err(_) => {
+            println!("{} PLC is unreachable. Cannot perform plan dry-run.", "✗".red());
+            anyhow::bail!("PLC at {}:{} is unreachable", plc.spec.device_address, plc.spec.port);
+        }
+    }
+
+    println!();
+    println!("{}", "📋 Pre-Flight SCADA Reconciliation Plan:".bold().underline());
+    println!();
+
+    let mut has_drift = false;
+
+    for r in &plc.spec.registers {
+        match plc_client.read_register(r.address).await {
+            Ok(live_val) => {
+                if live_val == r.desired_value {
+                    println!(
+                        "  {} {} @{}: live={}, desired={} (In Sync)",
+                        "✓".green(),
+                        r.name.cyan(),
+                        r.address,
+                        live_val,
+                        r.desired_value
+                    );
+                } else {
+                    has_drift = true;
+                    match r.remediation.strategy {
+                        RemediationStrategy::Auto => {
+                            println!(
+                                "  {} {} @{}: live={}, desired={} [Auto-correct]",
+                                "+".green().bold(),
+                                r.name.cyan(),
+                                r.address,
+                                live_val.to_string().yellow(),
+                                r.desired_value.to_string().green()
+                            );
+                        }
+                        RemediationStrategy::Alert => {
+                            println!(
+                                "  {} {} @{}: live={}, desired={} [Alert-only]",
+                                "~".yellow().bold(),
+                                r.name.cyan(),
+                                r.address,
+                                live_val.to_string().yellow(),
+                                r.desired_value.to_string().green()
+                            );
+                        }
+                        RemediationStrategy::Halt => {
+                            println!(
+                                "  {} {} @{}: live={}, desired={} [HALT]",
+                                "!".red().bold(),
+                                r.name.cyan(),
+                                r.address,
+                                live_val.to_string().yellow(),
+                                r.desired_value.to_string().green()
+                            );
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!(
+                    "  {} {} @{}: failed to read register: {}",
+                    "✗".red(),
+                    r.name.cyan(),
+                    r.address,
+                    e
+                );
+                anyhow::bail!("Failed to read register {} @ {}", r.name, r.address);
+            }
+        }
+    }
+
+    println!();
+    if has_drift {
+        println!("{}", "⚠️  Drift detected! Reconciliation is required.".yellow().bold());
+        Ok(2)
+    } else {
+        println!("{}", "✓ All registers in sync. No actions required.".green().bold());
+        Ok(0)
+    }
+}
+

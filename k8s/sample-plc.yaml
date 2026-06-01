@@ -26,6 +26,15 @@ spec:
         pollIntervalSecs: 5
         maxCorrectionsPerHour: 0
         cooldownSecs: 30
+    - name: emergency-halt
+      address: 4003
+      desiredValue: 0
+      criticality: SafetyCritical
+      remediation:
+        strategy: Halt
+        pollIntervalSecs: 5
+        maxCorrectionsPerHour: 0
+        cooldownSecs: 0
   tags:
     - production
     - printer-line

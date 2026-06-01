@@ -19,7 +19,7 @@ function BentoCard({
         : { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 } })}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
-      className={`grain-card relative overflow-hidden p-5 md:p-6 ${className}`}
+      className={`grain-card group relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:border-arc-500/30 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] ${className}`}
     >
       {children}
     </motion.div>
@@ -69,22 +69,27 @@ function Sparkline() {
 function RegisterValueGraph() {
   return (
     <BentoCard className="md:col-span-7 md:row-span-1">
-      <div className="flex items-center justify-between">
+      <div className="pointer-events-none absolute -right-16 -bottom-16 z-0 h-48 w-48 rounded-full bg-arc-500/10 blur-2xl transition-all duration-500 group-hover:bg-arc-500/15 group-hover:scale-110" aria-hidden="true" />
+      <div className="relative z-10 flex flex-col justify-between h-full">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Live · last 28 polls</div>
-          <div className="mt-1 font-mono text-sm text-ink-200">conveyor-speed · 4001</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Live · last 28 polls</div>
+              <div className="mt-1 font-mono text-sm text-ink-200">conveyor-speed · 4001</div>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[11px] text-ok-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-ok-500" /> in sync
+            </div>
+          </div>
+          <div className="mt-3">
+            <Sparkline />
+          </div>
         </div>
-        <div className="flex items-center gap-2 font-mono text-[11px] text-ok-500">
-          <span className="h-1.5 w-1.5 rounded-full bg-ok-500" /> in sync
+        <div className="mt-2 flex items-center justify-between font-mono text-[10.5px] text-ink-400">
+          <span>00:00:00</span>
+          <span>drift_events = 1 · corrections_applied = 1</span>
+          <span>00:01:24</span>
         </div>
-      </div>
-      <div className="mt-3">
-        <Sparkline />
-      </div>
-      <div className="mt-2 flex items-center justify-between font-mono text-[10.5px] text-ink-400">
-        <span>00:00:00</span>
-        <span>drift_events = 1 · corrections_applied = 1</span>
-        <span>00:01:24</span>
       </div>
     </BentoCard>
   );
@@ -119,7 +124,7 @@ function CLIBlock() {
 
 function DriftLog() {
   return (
-    <BentoCard className="md:col-span-5">
+    <BentoCard className="md:col-span-7">
       <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Drift event log</div>
       <ul className="mt-3 space-y-1.5 font-mono text-[11.5px] leading-relaxed">
         <li className="flex gap-3">
@@ -154,7 +159,7 @@ function DriftLog() {
 
 function AuditReport() {
   return (
-    <BentoCard className="md:col-span-7">
+    <BentoCard className="md:col-span-5">
       <div className="flex items-start justify-between gap-6">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Report excerpt · line-1-printer-plc</div>

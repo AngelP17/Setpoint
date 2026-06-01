@@ -1,0 +1,31 @@
+[package]
+name = "api"
+version = "0.2.0"
+edition = "2021"
+description = "Setpoint API Gateway - serves telemetry and control plane API to the web console"
+license = "MIT"
+repository = "https://github.com/AngelP17/fabgitops"
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.7", features = ["json", "macros"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+kube = { version = "0.87", features = ["derive", "runtime"] }
+k8s-openapi = { version = "0.20", features = ["v1_28"] }
+chrono = "0.4"
+futures = "0.3"
+hex = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+tokio-stream = "0.1"
+reqwest = { version = "0.11", features = ["json"] }
+
+operator = { path = "../operator" }

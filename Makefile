@@ -94,20 +94,62 @@ helm-uninstall: ## Uninstall the chart
 # ---- Local demo ----
 
 .PHONY: demo
-demo: ## Run the full interactive demo
-	./demo.sh
+demo: build-debug ## Start the entire unified flagship demo environment (Kind, Operator, API Gateway, Next.js dashboard)
+	@echo "=================================================================="
+	@echo "🚀 Starting Setpoint Control Plane Demo Environment"
+	@echo "=================================================================="
+	@echo "1. Ensuring local cluster is running and deploying resources..."
+	$(MAKE) k8s-apply
+	@echo "Waiting for pods to be ready..."
+	kubectl rollout status deployment/setpoint-operator --timeout=60s
+	kubectl rollout status deployment/setpoint-mock-plc --timeout=60s
+	@echo "2. Starting background port-forwards..."
+	@pkill -f "kubectl port-forward" 2>/dev/null || true
+	kubectl port-forward svc/setpoint-mock-plc 5502:5502 >/dev/null 2>&1 &
+	kubectl port-forward svc/setpoint-operator-metrics 8080:8080 >/dev/null 2>&1 &
+	@sleep 2
+	@echo "3. Starting Axum API Gateway..."
+	@pkill -f "target/debug/api" 2>/dev/null || true
+	cargo run -p api >/dev/null 2>&1 &
+	@sleep 1
+	@echo "4. Starting Next.js Dashboard Console..."
+	@pkill -f "next dev" 2>/dev/null || true
+	npm --prefix landing run dev >/dev/null 2>&1 &
+	@sleep 2
+	@echo "=================================================================="
+	@echo "🎉 Setpoint Demo Environment is now RUNNING!"
+	@echo "=================================================================="
+	@echo "👉 Open: http://localhost:3000/console in your browser"
+	@echo "👉 API Gateway: http://localhost:8081"
+	@echo ""
+	@echo "Active drift injection commands:"
+	@echo "  - make demo-drift-conveyor  (Auto strategy: automatically corrected)"
+	@echo "  - make demo-drift-printhead (Alert strategy: monitored and logged)"
+	@echo "  - make demo-drift-halt      (Halt strategy: system lock & safety alarm)"
+	@echo ""
+	@echo "To stop and clean up everything: make demo-cleanup"
+	@echo "=================================================================="
 
-.PHONY: demo-quick
-demo-quick: ## Run a non-interactive quick demo
-	./demo.sh quick
+.PHONY: demo-drift-conveyor
+demo-drift-conveyor: ## Inject drift into conveyor-speed register (address 4001, Auto-correct strategy)
+	cargo run -p drift-simulator -- --target="127.0.0.1:5502" --register=4001 --value=3500 --interval=2 --max-writes=5
 
-.PHONY: demo-watch
-demo-watch: ## Stream the live operator status
-	./demo.sh watch
+.PHONY: demo-drift-printhead
+demo-drift-printhead: ## Inject drift into print-head-position register (address 4002, Alert-only strategy)
+	cargo run -p drift-simulator -- --target="127.0.0.1:5502" --register=4002 --value=9999 --interval=2 --max-writes=5
+
+.PHONY: demo-drift-halt
+demo-drift-halt: ## Inject drift into emergency-halt register (address 4003, Halt system strategy)
+	cargo run -p drift-simulator -- --target="127.0.0.1:5502" --register=4003 --value=1 --interval=2 --max-writes=1
 
 .PHONY: demo-cleanup
-demo-cleanup: ## Tear down demo resources
-	./demo.sh cleanup
+demo-cleanup: k8s-delete ## Tear down all Kubernetes and local background demo resources
+	@pkill -f "kubectl port-forward" 2>/dev/null || true
+	@pkill -f "target/debug/api" 2>/dev/null || true
+	@pkill -f "target/release/api" 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@pkill -f drift-simulator 2>/dev/null || true
+	@echo "Cleanup completed successfully."
 
 .PHONY: k8s-apply
 k8s-apply: ## Apply raw k8s manifests (CRD, RBAC, deployment, mock, samples)

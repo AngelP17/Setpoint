@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: setpoint-operator-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: setpoint-operator
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress to Axum server on port 8080 (for metrics, audit ledger, and webhook validation)
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow DNS resolution queries
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow egress to default Modbus TCP port for industrial PLC communication
+    - ports:
+        - protocol: TCP
+          port: 502
+    # Allow egress to Kubernetes API server secure communication port
+    - ports:
+        - protocol: TCP
+          port: 443
