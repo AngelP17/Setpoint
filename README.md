@@ -63,15 +63,26 @@ same flow runs in CI on every PR; see
 
 ## What it looks like
 
-A live run shows the per-register state in `setpointctl watch` and on
-the Grafana dashboard. See [`docs/screenshots/`](docs/screenshots/) for
-captures from a real proof run.
+<table>
+<tr>
+<td align="center"><b>setpointctl get-status</b></td>
+<td align="center"><b>setpointctl watch (drift)</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/01-setpointctl-get-status.png" alt="setpointctl get-status showing all registers in sync" width="480" /></td>
+<td><img src="docs/screenshots/02-setpointctl-watch-drift.png" alt="setpointctl watch showing print-head-position in drift" width="480" /></td>
+</tr>
+<tr>
+<td align="center"><b>Operator logs</b></td>
+<td align="center"><b>Grafana dashboard</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/03-operator-logs-reconcile.png" alt="Operator logs showing DriftDetected and policy=Alert" width="480" /></td>
+<td><img src="docs/screenshots/04-grafana-dashboard.png" alt="Grafana dashboard with setpoint metrics" width="480" /></td>
+</tr>
+</table>
 
-| | |
-| - | - |
-| `setpointctl watch` | one row per register; red means drift detected, green means in sync |
-| Grafana | `setpoint_drift_events_total{register, strategy}` and `setpoint_register_value{register}` gauges |
-| `kubectl get events` | `Warning DriftDetected` on the IndustrialPLC, with desired/actual in the message |
+<p align="center"><img src="docs/screenshots/05-kubectl-events-drift.png" alt="kubectl events showing DriftDetected warnings" width="600" /></p>
 
 ## Install
 
