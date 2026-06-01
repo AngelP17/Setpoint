@@ -48,7 +48,7 @@ property, the proof fails before the change ships.
 
 ## Where Setpoint lives
 
-Setpoint is a single Cargo workspace with four binaries:
+Setpoint is a single Cargo workspace with five crates:
 
 | Crate              | What it does                                     |
 | ------------------ | ------------------------------------------------ |
@@ -56,10 +56,11 @@ Setpoint is a single Cargo workspace with four binaries:
 | `setpointctl`      | CLI. `get-status`, `watch`, `sync --force`.      |
 | `mock-plc`         | Modbus TCP server with optional chaos mode.      |
 | `drift-simulator`  | Connects to a Modbus device and overwrites a register. |
+| `api`              | Axum gateway used by the web console.             |
 
 It ships with a Helm chart, raw `k8s/` manifests, CI workflows, a
-Grafana dashboard, and a sample `IndustrialPLC` for the flagship
-proof run.
+Grafana dashboard, a Next.js landing + console, and a sample
+`IndustrialPLC` for the flagship proof run.
 
 ## What's not here
 

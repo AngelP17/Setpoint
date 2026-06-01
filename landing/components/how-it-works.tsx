@@ -71,9 +71,9 @@ function Step({ step, index }: { step: (typeof steps)[number]; index: number }) 
       <motion.div
         {...(reduce
           ? { initial: false }
-          : { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 } })}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          : { initial: { y: 8 }, whileInView: { y: 0 } })}
+        viewport={{ once: true, amount: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="flex flex-col justify-between"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-arc-400/20 bg-arc-500/10 text-arc-300">
@@ -88,9 +88,9 @@ function Step({ step, index }: { step: (typeof steps)[number]; index: number }) 
       <motion.div
         {...(reduce
           ? { initial: false }
-          : { initial: { opacity: 0, y: 16 }, whileInView: { opacity: 1, y: 0 } })}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          : { initial: { y: 8 }, whileInView: { y: 0 } })}
+        viewport={{ once: true, amount: 0 }}
+        transition={{ duration: 0.6, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="overflow-hidden rounded-[14px] border border-ink-700/60 bg-ink-900/50">
           <div className="flex items-center justify-between border-b border-ink-700/60 px-4 py-2 font-mono text-[11px] text-ink-400">

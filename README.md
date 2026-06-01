@@ -60,6 +60,8 @@ deterministic drift on the Alert-policy register, and writes a
 binary `verdict: PASS | FAIL` plus a human-readable report. The
 same flow runs in CI on every PR; see
 [`.github/workflows/e2e-proof.yml`](.github/workflows/e2e-proof.yml).
+If `kind` is not installed, the proof script gracefully degrades
+against the current `kubectl` context.
 
 ## What it looks like
 
@@ -72,6 +74,14 @@ same flow runs in CI on every PR; see
 <td><img src="docs/screenshots/landing-home.png" alt="Setpoint landing page hero and platform overview" width="480" /></td>
 </tr>
 <tr>
+<td align="center"><b>Control loop</b></td>
+<td align="center"><b>YAML builder</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/landing-flow.png" alt="Setpoint 'One control loop. Three ways to react.' section" width="480" /></td>
+<td><img src="docs/screenshots/landing-shape.png" alt="Setpoint 'Shape the resource before it hits the cluster.' YAML builder" width="480" /></td>
+</tr>
+<tr>
 <td align="center"><b>Console</b></td>
 <td align="center"><b>Flagship proof</b></td>
 </tr>
@@ -80,6 +90,10 @@ same flow runs in CI on every PR; see
 <td><img src="docs/screenshots/05-kubectl-events-drift.png" alt="kubectl events showing DriftDetected warnings" width="480" /></td>
 </tr>
 </table>
+
+The screenshots above are static captures committed under
+`docs/screenshots/`. For a live view, run the local demo
+(see [Flagship demo path](#flagship-demo-path) below).
 
 ## Install
 
@@ -115,12 +129,56 @@ working on:
 - Docker for local images and compose services
 - `kubectl` and Helm for cluster packaging and deployment
 - `jq` for proof artifact generation
-- `kind` for local end-to-end cluster runs
+- `kind` for local end-to-end cluster runs (optional; the proof
+  script falls back to the current `kubectl` context when `kind` is
+  unavailable)
 - Node/npm for the `landing/` Next.js app
 
 `ci-local.sh` checks for `cargo`, `docker`, `helm`, and `kubectl`
 up front, and skips some optional checks when `trivy` or `kind`
 are not installed.
+
+### Flagship demo path
+
+This is the path a reviewer can run end to end. Every command is
+discoverable from `Makefile`, `landing/package.json`, or
+`scripts/flagship-proof.sh`.
+
+1. Install JS deps and verify the frontend builds and typechecks:
+   ```sh
+   npm --prefix landing install
+   cd landing && npm exec -- tsc --noEmit
+   npm --prefix landing run build
+   ```
+2. Build and test the Rust workspace:
+   ```sh
+   make fmt
+   make lint
+   make test
+   make build
+   ```
+3. Lint and render the Helm chart:
+   ```sh
+   make helm-lint
+   make helm-template
+   ```
+4. Start the local demo (operator + mock PLC + Axum API gateway on
+   port 8081 + Next.js dev server on port 3000):
+   ```sh
+   make demo
+   ```
+5. Open `http://localhost:3000/` for the marketing page and
+   `http://localhost:3000/console` for the live console. The console
+   reports whether it is reading the Axum API or the bundled replica.
+6. From a second terminal, exercise each per-policy drift injector:
+   ```sh
+   make demo-drift-conveyor   # Auto strategy: operator silently corrects
+   make demo-drift-printhead  # Alert strategy: detected, never written
+   make demo-drift-halt       # Halt strategy: IndustrialPLC marked Failed
+   ```
+7. Tear down: `make demo-cleanup`.
+8. Reproduce the CI proof locally: `make flagship-proof`. The verdict
+   and artifacts land under `artifacts/latest/`.
 
 ### Common commands
 
@@ -142,6 +200,9 @@ make obs-up           # start Prometheus + Grafana
 make obs-down         # stop Prometheus + Grafana
 make demo             # start local demo environment
 make demo-cleanup     # stop demo resources and local processes
+make demo-drift-conveyor   # inject drift into the Auto conveyor register
+make demo-drift-printhead  # inject drift into the Alert print-head register
+make demo-drift-halt       # trigger the Halt safety fault
 make flagship-proof   # run the proof end to end
 make proof-cleanup    # clean resources created by the proof
 make proof-report     # regenerate report from captured artifacts
@@ -158,9 +219,28 @@ npm --prefix landing run lint
 cd landing && npm exec -- tsc --noEmit
 ```
 
+For the API gateway (used by the console demo):
+
+```sh
+cargo run -p api
+curl http://localhost:8081/api/health
+```
+
 There is no dedicated root-level JavaScript task runner. The TypeScript
 typecheck command above is derived from the checked-in `landing/tsconfig.json`
 and local `typescript` dependency.
+
+### Console, mock data, and the API
+
+The `/console` route is a typed Next.js client that talks to the
+`crates/api` Axum gateway on `http://localhost:8081`. When the
+gateway is offline, the console surfaces a "Demo data fallback"
+banner and reads from a typed bundled replica so the layout is
+still exercisable. Audit (`/api/audit`) and SSE
+(`/api/stream/events`) responses are clearly labeled in the payload
+(`isMock: true`, `source: "mock"`) — they are demo data meant to
+render the verification surface end to end while the operator
+service is not colocated.
 
 ## How it works
 
@@ -196,12 +276,16 @@ crates/
   setpointctl/      CLI (get-status, watch, sync)
   mock-plc/         Modbus TCP server with optional chaos mode
   drift-simulator/  overwrites a register on demand for the proof run
+  api/              Axum gateway used by the console (typed health, audit, events, simulate-policy)
 k8s/                raw manifests (CRD, RBAC, deployment, sample, mock)
 charts/setpoint/    Helm chart
 config/samples/     reference IndustrialPLC resources
 docs/               architecture, ADRs, executive summary, proof
 artifacts/          proof run output (templates ship here; real run overwrites)
-scripts/            flagship-proof.sh, capture-metrics.sh, generate-report.sh
+scripts/            flagship-proof.sh, capture-metrics.sh, generate-report.sh, aggregate-proof.sh
+landing/
+  app/              marketing page and /console route
+  components/       marketing page sections (nav, hero, proof bento, etc.)
 ```
 
 Generated or local-output directories that agents should usually leave
@@ -211,6 +295,13 @@ alone:
 - `artifacts/latest/`
 - `landing/.next/`
 - `landing/node_modules/`
+
+Files with generated or machine-output characteristics that agents
+should not edit unless the task requires it:
+
+- `Cargo.lock`
+- `landing/package-lock.json`
+- `landing/next-env.d.ts`
 
 ## Architecture Decision Records
 
@@ -262,6 +353,15 @@ or behavior claims tied to the end-to-end demo.
   mostly references `https://github.com/apinzon/setpoint-operator`.
 - `landing/.next/` and `landing/node_modules/` are currently present in the
   working tree and should be treated as generated artifacts, not source.
+- The console demo depends on the Axum gateway on `localhost:8081`. When
+  that gateway is offline, the console falls back to a typed bundled
+  replica and labels the data accordingly. The audit ledger and SSE
+  stream are bundled mock payloads in either case; the response payload
+  includes `isMock: true` and `source: "mock"` so the console can
+  honestly tell the difference.
+- Drift demo commands (`make demo-drift-conveyor`, `make demo-drift-printhead`,
+  `make demo-drift-halt`) only work after `make demo` has port-forwarded the
+  in-cluster mock PLC to `127.0.0.1:5502`.
 
 ## License
 

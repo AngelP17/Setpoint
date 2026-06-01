@@ -10,12 +10,12 @@ Read this file before planning or editing. It is meant to reduce avoidable stops
 - Repo/workspace root: `/Users/apinzon/Desktop/Projects/fabgitops`
 - Main languages: Rust, Bash, YAML, TypeScript
 - Main surfaces:
-  - `crates/operator`: Kubernetes operator and shared CRD/status logic
+  - `crates/operator`: Kubernetes operator and shared CRD/status/policy logic
   - `crates/setpointctl`: CLI for status/watch/sync flows
   - `crates/mock-plc`: local Modbus TCP mock server
   - `crates/drift-simulator`: deterministic drift injector used by proof/demo flows
-  - `crates/api`: Axum API used by the landing console/demo
-  - `landing/`: Next.js 15 app with marketing page and `/console`
+  - `crates/api`: Axum API used by the landing console/demo. Routes (stable names): `/api/health`, `/api/plcs`, `/api/plcs/:namespace/:name`, `/api/plcs/:namespace/:name/sync`, `/api/events`, `/api/audit`, `/api/simulate-policy`, `/api/stream/events`
+  - `landing/`: Next.js 15 app with marketing page and `/console`. Console components live in `landing/app/console/_components/` and shared types/contracts in `landing/app/console/_lib/`
   - `k8s/` and `charts/setpoint/`: raw manifests and Helm chart
   - `scripts/`: flagship proof and artifact generation scripts
   - `docs/`: architecture, proof, ADRs, demo material
@@ -74,6 +74,9 @@ Run from repo root unless noted otherwise.
 - Stop observability stack: `make obs-down`
 - Start local demo environment: `make demo`
 - Clean up demo environment: `make demo-cleanup`
+- Inject drift into the Auto-correct conveyor register: `make demo-drift-conveyor`
+- Inject drift into the Alert-only print-head register: `make demo-drift-printhead`
+- Trigger the Halt safety fault: `make demo-drift-halt`
 - Run flagship proof: `make flagship-proof`
 - Proof cleanup only: `make proof-cleanup`
 - Regenerate proof report from captured artifacts: `make proof-report`
@@ -90,10 +93,56 @@ Run from `landing/` or with `npm --prefix landing ...`.
 - TypeScript check without emitting:
   `cd landing && npm exec -- tsc --noEmit`
 
+### API gateway (demo)
+
+- Run standalone: `cargo run -p api`
+- Health: `curl http://localhost:8081/api/health`
+- Policy simulation: `curl -X POST http://localhost:8081/api/simulate-policy -H 'Content-Type: application/json' -d '{"strategy":"Auto","desiredValue":100,"currentValue":200,"cooldownSecs":30,"maxCorrectionsPerHour":5,"correctionsLastHour":0}'`
+
 Notes:
 
 - There is no dedicated root JS/TS task runner.
 - The landing app uses Next.js 15, React 19, Tailwind v4, and `motion`.
+- `make demo` boots the operator, mock PLC, the Axum API on port 8081, and the Next.js dev server on port 3000. The console at `/console` calls the API and falls back to a typed bundled replica when the API is unreachable.
+- `/api/audit` and `/api/stream/events` currently serve a clearly labeled mock payload (`isMock: true`, `source: "mock"`) so the console can render the verification surface end-to-end. The audit response includes a `note` field describing the mock contract.
+
+## Flagship Demo Path
+
+This is the path a reviewer can run end-to-end. Each step lists the commands discovered from `Makefile`, `package.json`, and `scripts/`.
+
+1. Install JS deps and verify the frontend typechecks/builds:
+   ```sh
+   npm --prefix landing install
+   cd landing && npm exec -- tsc --noEmit
+   npm --prefix landing run build
+   ```
+2. Build and test the Rust workspace:
+   ```sh
+   make fmt
+   make lint
+   make test
+   make build
+   ```
+3. Lint and render the Helm chart:
+   ```sh
+   make helm-lint
+   make helm-template
+   ```
+4. Start the local demo (operator + mock PLC + API gateway + Next.js dev server):
+   ```sh
+   make demo
+   ```
+5. Open `http://localhost:3000/` for the marketing page and `http://localhost:3000/console` for the live console. The console will show whether it is reading the Axum API or the bundled replica.
+6. From a second terminal, exercise the per-policy drift injectors:
+   ```sh
+   make demo-drift-conveyor   # Auto strategy: operator silently corrects
+   make demo-drift-printhead  # Alert strategy: detected, never written
+   make demo-drift-halt       # Halt strategy: IndustrialPLC marked Failed
+   ```
+7. Tear down: `make demo-cleanup`.
+8. Reproduce the CI proof locally: `make flagship-proof`. The verdict and artifacts land under `artifacts/latest/`.
+
+If `kind` is not installed, `make flagship-proof` still runs against the current `kubectl` context (the proof script gracefully degrades when the cluster is not a `kind` cluster).
 
 ## Expected Tooling
 
@@ -155,6 +204,8 @@ Document these instead of guessing:
 - `landing/app/globals.css` imports Google Fonts via `@import`; keep existing behavior unless the task explicitly includes frontend implementation changes.
 - `landing/package.json` exposes `lint`, but there is no separate ESLint config file in the repo root. Verify the command before documenting strong guarantees.
 - `landing/.next/` and `landing/node_modules/` are present in the working tree. Treat them as generated local artifacts, not source.
+- The console at `landing/app/console/page.tsx` calls the Axum API at `http://localhost:8081`. When the API is offline, it falls back to a typed bundled replica and surfaces a "Demo data fallback" banner. Audit and SSE streams are always labeled as mock data in the response payload (`isMock: true`, `source: "mock"`).
+- Drift demo commands (`make demo-drift-conveyor`, `make demo-drift-printhead`, `make demo-drift-halt`) target `127.0.0.1:5502`, which only works after `make demo` port-forwards the mock PLC service.
 
 ## Verification Guidance
 

@@ -1,8 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import Image from "next/image";
-import { ArrowBendDownRight, Pulse, ShieldCheck, TerminalWindow } from "@phosphor-icons/react/dist/ssr";
+import { Pulse, ShieldCheck, TerminalWindow } from "@phosphor-icons/react/dist/ssr";
 
 function BentoCard({
   children,
@@ -18,8 +17,8 @@ function BentoCard({
     <motion.div
       {...(reduce
         ? { initial: false }
-        : { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 } })}
-      viewport={{ once: true, amount: 0.3 }}
+        : { initial: { y: 8 }, whileInView: { y: 0 } })}
+      viewport={{ once: true, amount: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className={`grain-card group relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:border-arc-500/30 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] ${className}`}
     >
@@ -193,35 +192,42 @@ function AuditReport() {
   );
 }
 
-function PlantContext() {
+function OutcomeStatement() {
   return (
     <BentoCard className="md:col-span-12">
-      <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-[18px] border border-ink-700/60">
-          <div className="relative aspect-[16/7]">
-            <Image
-              src="https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=1400&q=80&auto=format&fit=crop"
-              alt="Manufacturing floor with automated machinery and control stations"
-              fill
-              sizes="(min-width: 768px) 60vw, 100vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/30 to-transparent" />
+      <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+        <div>
+          <div className="flex items-center gap-2 font-mono text-[10px] text-ink-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-arc-300" weight="bold" />
+            outcome
           </div>
+          <h3 className="mt-2 text-balance text-2xl font-medium leading-tight text-ink-50 md:text-3xl">
+            The drift was real. The operator did not write to a register it was told to leave alone.
+          </h3>
+          <p className="mt-3 max-w-[52ch] text-pretty text-sm leading-relaxed text-ink-300">
+            The proof runs the same reconcile loop the cluster runs in production. The
+            verdict is the verdict. If a future change breaks the Alert policy, the proof
+            fails before the change ships.
+          </p>
         </div>
-        <div className="flex flex-col justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-[10px] text-ink-400"><ArrowBendDownRight className="h-3.5 w-3.5 text-arc-300" weight="bold" /> plant context</div>
-            <h3 className="mt-2 text-2xl font-medium leading-tight text-ink-50">The frontend stays thin. The control logic stays in Rust.</h3>
-            <p className="mt-3 max-w-[42ch] text-sm leading-relaxed text-ink-300">
-              The console surfaces live inventory, drift, proof artifacts, and policy simulation. The operator, API, and verdict path remain the authoritative system.
-            </p>
+        <dl className="grid grid-cols-2 gap-3 font-mono text-xs">
+          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
+            <dt className="text-ink-400">in_sync (before)</dt>
+            <dd className="mt-1 text-ink-200">true</dd>
           </div>
-          <div className="grid grid-cols-2 gap-3 font-mono text-xs">
-            <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3 text-ink-200">operator<br /><span className="text-ink-400">reconcile + metrics</span></div>
-            <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3 text-ink-200">api<br /><span className="text-ink-400">normalized state</span></div>
+          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
+            <dt className="text-ink-400">in_sync (after)</dt>
+            <dd className="mt-1 text-ink-200">false</dd>
           </div>
-        </div>
+          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
+            <dt className="text-ink-400">auto_corrected</dt>
+            <dd className="mt-1 text-ink-200">0 (alert register)</dd>
+          </div>
+          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
+            <dt className="text-ink-400">verdict</dt>
+            <dd className="mt-1 text-ok-500">PASS</dd>
+          </div>
+        </dl>
       </div>
     </BentoCard>
   );
@@ -236,7 +242,9 @@ export function ProofBento() {
             Evidence comes first.
           </h2>
           <p className="mt-3 max-w-[58ch] text-pretty text-base leading-relaxed text-ink-300">
-            The strongest claim in this project is simple: an Alert-policy register must never be auto-corrected. The page shows the command, telemetry, and verdict that back that claim.
+            The strongest claim in this project is simple: an Alert-policy register must
+            never be auto-corrected. The page shows the command, telemetry, and verdict
+            that back that claim.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-12 md:gap-6">
@@ -244,7 +252,7 @@ export function ProofBento() {
           <RegisterValueGraph />
           <DriftLog />
           <AuditReport />
-          <PlantContext />
+          <OutcomeStatement />
         </div>
       </div>
     </section>
