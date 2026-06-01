@@ -4,7 +4,7 @@
 # Replicates GitHub Actions workflow locally
 #
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'

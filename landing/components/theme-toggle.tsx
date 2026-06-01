@@ -7,7 +7,9 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const saved = localStorage.getItem("setpoint-theme") as "light" | "dark" | null;
-    const initial = saved || "dark";
+    const initial =
+      saved ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     setTheme(initial);
     if (initial === "dark") {
       document.documentElement.classList.add("dark");

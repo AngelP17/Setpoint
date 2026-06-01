@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
+import { ArrowRight, Gauge, ShieldCheck, Waves } from "@phosphor-icons/react/dist/ssr";
 
 export function Hero() {
   const reduce = useReducedMotion();
@@ -10,64 +11,59 @@ export function Hero() {
     : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <section className="relative isolate overflow-hidden pt-24 pb-20 md:pt-32 md:pb-28">
+    <section className="relative isolate overflow-hidden pb-20 pt-24 md:pb-28 md:pt-24">
       <div className="grid-bg absolute inset-0 -z-10" aria-hidden="true" />
       <div
-        className="pointer-events-none absolute -top-32 left-1/2 -z-10 h-96 w-[60rem] -translate-x-1/2 rounded-full opacity-50 blur-3xl"
-        style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--color-arc-500) 24%, transparent), transparent 70%)" }}
+        className="pointer-events-none absolute -top-16 right-0 -z-10 h-[34rem] w-[34rem] rounded-full opacity-45 blur-3xl"
+        style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--color-arc-400) 20%, transparent), transparent 70%)" }}
         aria-hidden="true"
       />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-60 bg-gradient-to-b from-arc-500/8 to-transparent" aria-hidden="true" />
 
-      <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-12 px-6 lg:grid-cols-12 lg:gap-10">
+      <div className="mx-auto grid min-h-[100dvh] max-w-[1400px] grid-cols-1 items-center gap-12 px-6 pt-16 lg:grid-cols-12 lg:gap-10 lg:pt-8">
         <motion.div
           {...enter}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="lg:col-span-7"
         >
-          <div className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/60 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-ink-300">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-arc-500 opacity-70" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-arc-500" />
-            </span>
-            Reconciling, in production, since 0.2.0
+          <div className="inline-flex items-center gap-2 rounded-pill border border-arc-400/20 bg-arc-500/10 px-3 py-1 font-mono text-[11px] text-arc-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-arc-300" />
+            rust is the brain. typescript is the glass.
           </div>
 
-          <h1 className="mt-6 max-w-[16ch] text-balance text-4xl font-semibold leading-[1.05] tracking-tighter text-ink-50 md:text-5xl lg:text-[3.75rem]">
-            GitOps for the factory floor.
+          <h1 className="mt-6 max-w-[13ch] text-balance text-4xl font-semibold leading-[1.02] tracking-tighter text-ink-50 md:text-6xl lg:text-[4.7rem]">
+            Industrial drift control you can prove.
           </h1>
 
-          <p className="mt-5 max-w-[42ch] text-pretty text-base leading-relaxed text-ink-300 md:text-lg">
-            Setpoint is a Kubernetes operator that reconciles industrial Modbus PLCs as first-class resources with machine-checkable behavior.
+          <p className="mt-5 max-w-[44ch] text-pretty text-base leading-relaxed text-ink-300 md:text-lg">
+            Setpoint turns PLC registers into declarative resources, explains every remediation decision, and ships a proof run that fails CI when safety policy is violated.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a
-              href="https://github.com/apinzon/setpoint-operator"
-              className="group inline-flex items-center gap-2 rounded-pill bg-arc-500 px-5 py-2.5 text-sm font-medium text-ink-950 transition hover:-translate-y-px hover:shadow-[0_0_20px_rgba(0,212,255,0.4)] active:scale-[0.98] active:translate-y-0 duration-200 ease-out glow-arc"
-            >
-              View on GitHub
-              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+            <a href="/console" className="group inline-flex items-center gap-2 rounded-pill bg-arc-500 px-5 py-3 text-sm font-medium text-ink-50 transition hover:-translate-y-px active:scale-[0.98] duration-200 glow-arc">
+              Open console
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" weight="bold" />
             </a>
             <a
               href="#proof"
-              className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/50 px-5 py-2.5 text-sm text-ink-200 transition hover:border-ink-500 hover:text-ink-50 active:scale-[0.98] duration-200 ease-out"
+              className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/50 px-5 py-3 text-sm text-ink-200 transition hover:border-ink-500 hover:text-ink-50 active:scale-[0.98] duration-200"
             >
               See the proof
             </a>
           </div>
 
-          <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-ink-700/50 pt-6 text-left">
+          <dl className="mt-10 grid max-w-2xl grid-cols-1 gap-4 border-t border-ink-700/50 pt-6 text-left sm:grid-cols-3">
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Binaries</dt>
-              <dd className="mt-1 font-mono text-2xl font-medium tabular-nums text-ink-100">4</dd>
+              <dt className="font-mono text-[11px] text-ink-400">Safety engine</dt>
+              <dd className="mt-1 flex items-center gap-2 font-mono text-lg text-ink-100"><ShieldCheck className="h-4 w-4 text-arc-300" weight="bold" /> per-register policy</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Registers / PLC</dt>
-              <dd className="mt-1 font-mono text-2xl font-medium tabular-nums text-ink-100">N</dd>
+              <dt className="font-mono text-[11px] text-ink-400">Runtime</dt>
+              <dd className="mt-1 flex items-center gap-2 font-mono text-lg text-ink-100"><Gauge className="h-4 w-4 text-arc-300" weight="bold" /> operator + api + cli</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400">Verdict gate</dt>
-              <dd className="mt-1 font-mono text-2xl font-medium tabular-nums text-arc-400">jq</dd>
+              <dt className="font-mono text-[11px] text-ink-400">Evidence</dt>
+              <dd className="mt-1 flex items-center gap-2 font-mono text-lg text-ink-100"><Waves className="h-4 w-4 text-arc-300" weight="bold" /> proof.json gate</dd>
             </div>
           </dl>
         </motion.div>
@@ -77,64 +73,70 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="lg:col-span-5 lg:pt-2"
         >
-          <div className="relative">
-            <div className="absolute -inset-px rounded-[14px] bg-gradient-to-b from-arc-500/30 via-transparent to-transparent" aria-hidden="true" />
-            <div className="grain-card relative overflow-hidden">
-              <div className="flex items-center justify-between border-b border-ink-700/60 px-4 py-2.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+          <div className="console-frame relative overflow-hidden p-4">
+            <div className="grid gap-4">
+              <div className="overflow-hidden rounded-[18px] border border-ink-700/70">
+                <div className="relative aspect-[4/3]">
+                  <Image
+                    src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1200&q=80&auto=format&fit=crop"
+                    alt="Industrial automation line with operator stations and conveyor systems"
+                    fill
+                    priority
+                    sizes="(min-width: 1024px) 34vw, 100vw"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/30 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-arc-400/20 bg-ink-900/80 p-3 backdrop-blur">
+                      <div className="font-mono text-[10px] text-ink-400">active line</div>
+                      <div className="mt-1 font-mono text-sm text-ink-100">line-1-printer-plc</div>
+                    </div>
+                    <div className="rounded-2xl border border-arc-400/20 bg-ink-900/80 p-3 backdrop-blur">
+                      <div className="font-mono text-[10px] text-ink-400">phase</div>
+                      <div className="mt-1 font-mono text-sm text-arc-300">DriftDetected</div>
+                    </div>
+                  </div>
                 </div>
-                <span className="font-mono text-[11px] text-ink-400">proof.json</span>
-                <span className="font-mono text-[11px] text-ok-500">PASS</span>
               </div>
-              <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-[1.6] text-ink-200">
-                <code>
-{`{
-  "apiVersion": "setpoint.io/proof/v1",
-  "verdict": "PASS",
-  "before":  { "in_sync": true,  "drift": 0 },
-  "after":   { "in_sync": false, "drift": 1 },
-  "detection": {
-    "registers_in_drift": 1,
-    "auto_corrected":     0,
-    "alert_violations":   0
-  },
-  "verdict_reasons": []
-}`}
-                </code>
-              </pre>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-[18px] border border-ink-700/60 bg-ink-900/80 p-4">
+                  <div className="font-mono text-[10px] text-ink-400">proof gate</div>
+                  <div className="mt-2 font-mono text-2xl text-arc-300">PASS</div>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-300">Alert-policy drift was detected. No forbidden write occurred.</p>
+                </div>
+                <div className="rounded-[18px] border border-ink-700/60 bg-ink-900/80 p-4">
+                  <div className="font-mono text-[10px] text-ink-400">artifact stack</div>
+                  <ul className="mt-2 space-y-1 font-mono text-xs text-ink-200">
+                    <li>drift-before.json</li>
+                    <li>drift-after.json</li>
+                    <li>prometheus-metrics.txt</li>
+                    <li>proof.json</li>
+                  </ul>
+                </div>
+              </div>
             </div>
-            <p className="mt-3 px-1 font-mono text-[11px] text-ink-400">
-              <span className="text-arc-400">▲</span> Aggregated by <code className="text-ink-300">scripts/aggregate-proof.sh</code> from the live proof run
-            </p>
           </div>
         </motion.div>
       </div>
 
-      <div className="mx-auto mt-20 grid max-w-[1400px] grid-cols-1 items-center gap-6 px-6 md:grid-cols-12">
-        <div className="md:col-span-5">
-          <div className="relative aspect-[5/3] overflow-hidden rounded-[14px] border border-ink-700/60">
-            <Image
-              src="https://images.unsplash.com/photo-1565939033469-bd1d34c0b09d?w=1200&q=80&auto=format&fit=crop"
-              alt="Conveyor belt inside an industrial plant"
-              fill
-              priority
-              sizes="(min-width: 768px) 40vw, 100vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink-950/70 via-transparent to-transparent" />
-            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between font-mono text-[10.5px] text-ink-200/90">
-              <span>line-2 / pick-and-place</span>
-              <span className="text-arc-400">SCADA · Modbus TCP · 502</span>
-            </div>
+      <div className="mx-auto mt-10 max-w-[1400px] px-6">
+        <div className="grid gap-4 rounded-[24px] border border-ink-700/50 bg-ink-900/45 p-5 md:grid-cols-4 md:p-6">
+          <div>
+            <div className="font-mono text-[10px] text-ink-400">layer 1</div>
+            <div className="mt-2 text-lg text-ink-50">Rust operator</div>
           </div>
-        </div>
-        <div className="md:col-span-7">
-          <p className="text-pretty text-lg leading-relaxed text-ink-200 md:text-xl">
-            A real conveyor belt on a real factory floor. Setpoint is what keeps its <span className="font-mono text-arc-400">conveyor-speed</span> register pinned to <span className="font-mono text-arc-400">2500</span> even when a contractor’s laptop drags the SCADA off course at 02:14.
-          </p>
+          <div>
+            <div className="font-mono text-[10px] text-ink-400">layer 2</div>
+            <div className="mt-2 text-lg text-ink-50">Axum API</div>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] text-ink-400">layer 3</div>
+            <div className="mt-2 text-lg text-ink-50">Web console</div>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] text-ink-400">layer 4</div>
+            <div className="mt-2 text-lg text-ink-50">Proof system</div>
+          </div>
         </div>
       </div>
     </section>

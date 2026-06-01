@@ -42,14 +42,11 @@ spec:
     <section className="relative isolate border-t border-ink-700/40 py-20 md:py-28 bg-ink-950">
       <div className="mx-auto max-w-[1400px] px-6">
         <div className="mb-14 max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-300">
-            Declarative PLC configuration
-          </div>
-          <h2 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight text-ink-50 md:text-4xl">
-            Build your register specs visually.
+          <h2 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-ink-50 md:text-5xl">
+            Shape the resource before it hits the cluster.
           </h2>
           <p className="mt-3 max-w-[60ch] text-pretty text-base leading-relaxed text-ink-300">
-            Tune your remediation thresholds, register bounds, and strategies. Copy the resulting Custom Resource YAML directly into your GitOps cluster deployment pipeline.
+            Tune the register name, desired value, and remediation strategy. The output stays honest to the CRD shape already used by the operator and proof flow.
           </p>
         </div>
 

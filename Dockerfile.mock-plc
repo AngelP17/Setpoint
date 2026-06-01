@@ -20,6 +20,8 @@ COPY crates/setpointctl/Cargo.toml ./crates/setpointctl/
 COPY crates/setpointctl/src ./crates/setpointctl/src/
 COPY crates/drift-simulator/Cargo.toml ./crates/drift-simulator/
 COPY crates/drift-simulator/src ./crates/drift-simulator/src/
+COPY crates/api/Cargo.toml ./crates/api/
+COPY crates/api/src ./crates/api/src/
 
 # Build the mock-plc
 RUN cargo build --release -p mock-plc

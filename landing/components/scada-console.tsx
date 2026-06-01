@@ -273,21 +273,14 @@ export function SCADAConsole() {
   const tempPercentage = (tempReg.actual / 100) * 100;
 
   return (
-    <section className="relative isolate border-t border-ink-700/40 py-20 md:py-28 bg-ink-950">
+    <section id="console" className="relative isolate border-t border-ink-700/40 py-20 md:py-28 bg-ink-950">
       <div className="mx-auto max-w-[1400px] px-6">
         <div className="mb-14 max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-pill border border-ink-600 bg-ink-800/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-300">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${state.plcStatus === "Failed" ? "bg-fail-500" : "bg-arc-500"}`} />
-              <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${state.plcStatus === "Failed" ? "bg-fail-500" : "bg-arc-500"}`} />
-            </span>
-            Interactive SCADA Sandbox
-          </div>
-          <h2 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight text-ink-50 md:text-4xl">
-            Watch reconciliation run in real-time.
+          <h2 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-ink-50 md:text-5xl">
+            Watch the same fault trigger three different responses.
           </h2>
           <p className="mt-3 max-w-[60ch] text-pretty text-base leading-relaxed text-ink-300">
-            Inject synthetic register drift to observe how the operator's Auto, Alert, and Halt remediation strategies handle operational drift on live hardware.
+            Auto corrects. Alert reports. Halt fails fast. This sandbox keeps the page grounded in the actual safety model instead of abstract product copy.
           </p>
         </div>
 
@@ -469,8 +462,8 @@ export function SCADAConsole() {
               <div ref={terminalEndRef} />
             </div>
 
-            <div className="border-t border-ink-700/40 px-4 py-2.5 bg-ink-950/40 text-[10px] font-mono text-ink-500">
-              Active registers: {state.registers.length} · Operator: Running
+            <div className="border-t border-ink-700/40 bg-ink-950/40 px-4 py-2.5 font-mono text-[10px] text-ink-500">
+              Active registers: {state.registers.length} | Operator: Running
             </div>
           </div>
         </div>

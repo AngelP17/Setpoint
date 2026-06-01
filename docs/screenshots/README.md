@@ -1,22 +1,49 @@
 # Screenshots
 
-This directory holds the captures that go into the README, the
-landing page, and the executive summary.
+This directory holds the captures that go into the README and other
+project collateral.
 
-## Capture list
+## README capture list
 
-The five screenshots the project is expected to ship, in the order
-they appear in the README "What it looks like" section.
+These are the screenshots currently used in the root README "What it
+looks like" section.
 
 | # | File | What to capture | How |
 | - | ---- | --------------- | --- |
-| 1 | `01-setpointctl-get-status.png` | `setpointctl get-status` showing all registers in sync | Run `./target/release/setpointctl get-status` after a clean deploy, screenshot the terminal. |
-| 2 | `02-setpointctl-watch-drift.png` | `setpointctl watch` showing one register in red, one in green | Start `setpointctl watch --interval 1`, launch `drift-simulator` against register 4002, wait one poll cycle, screenshot. |
-| 3 | `03-operator-logs-reconcile.png` | operator logs showing per-register reconcile lines with strategy labels | `kubectl logs -l app=setpoint-operator --tail=40` after a drift cycle, screenshot. |
-| 4 | `04-grafana-dashboard.png` | the Setpoint Grafana dashboard with `setpoint_drift_events_total` ticking and `setpoint_register_value` gauges | Open `http://localhost:3000/d/setpoint-operator`, wait for at least one drift cycle, screenshot. |
-| 5 | `05-kubectl-events-drift.png` | `kubectl get events` showing a `Warning DriftDetected` on the PLC | `kubectl get events --field-selector involvedObject.name=line-1-printer-plc` after a drift cycle, screenshot. |
+| 1 | `landing-home.png` | landing page hero and top platform framing | Run the local app and capture `http://127.0.0.1:3000`. |
+| 2 | `landing-proof.png` | proof and evidence section | Capture `http://127.0.0.1:3000/#proof`. |
+| 3 | `landing-console.png` | `/console` page with dashboard surface visible | Capture `http://127.0.0.1:3000/console`. |
+| 4 | `05-kubectl-events-drift.png` | proof-related Kubernetes event evidence | Reuse or refresh from a real drift run. |
 
-## How to capture
+## How to capture the README screenshots
+
+```sh
+# 1. Start the landing app
+npm --prefix landing run dev
+
+# 2. Capture browser screenshots
+npx playwright screenshot --device="Desktop Chrome" --full-page \
+  http://127.0.0.1:3000 docs/screenshots/landing-home.png
+npx playwright screenshot --device="Desktop Chrome" --full-page \
+  http://127.0.0.1:3000/#proof docs/screenshots/landing-proof.png
+npx playwright screenshot --device="Desktop Chrome" --full-page \
+  http://127.0.0.1:3000/console docs/screenshots/landing-console.png
+```
+
+## Proof and terminal captures
+
+The older ops screenshots are still valid repo artifacts when you want
+to show the raw operator, CLI, and cluster evidence surface.
+
+| File | What to capture |
+| ---- | --------------- |
+| `01-setpointctl-get-status.png` | `setpointctl get-status` showing all registers in sync |
+| `02-setpointctl-watch-drift.png` | `setpointctl watch` during a drift cycle |
+| `03-operator-logs-reconcile.png` | operator logs with reconcile decisions |
+| `04-grafana-dashboard.png` | Grafana dashboard with Setpoint metrics |
+| `05-kubectl-events-drift.png` | `kubectl get events` showing `Warning DriftDetected` |
+
+To refresh those:
 
 ```sh
 # Pre-flight: start a clean demo
@@ -46,5 +73,5 @@ open http://localhost:3000/d/setpoint-operator
 # Screenshot.
 ```
 
-The files committed to this directory should be **real** captures, not
-mockups. Empty directory = no real run yet.
+The files committed to this directory should be real captures, not
+mockups.
