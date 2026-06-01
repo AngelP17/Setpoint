@@ -7,7 +7,9 @@ use tracing::{error, info, warn, Level};
 
 #[derive(Parser, Debug)]
 #[command(name = "setpoint-drift-simulator")]
-#[command(about = "Injects deterministic register drift into a Modbus TCP device. Used by the Setpoint flagship proof run to exercise the operator's remediation policies.")]
+#[command(
+    about = "Injects deterministic register drift into a Modbus TCP device. Used by the Setpoint flagship proof run to exercise the operator's remediation policies."
+)]
 #[command(version)]
 struct Args {
     /// Target host:port (e.g. setpoint-mock-plc:5502)

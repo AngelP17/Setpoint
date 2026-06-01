@@ -73,7 +73,8 @@ impl ChaosEngine {
                         let addr = addrs[rng.gen_range(0..addrs.len())];
                         let old_value = state.registers[&addr];
                         let drift: i16 = rng.gen_range(-(max_drift as i16)..=max_drift as i16);
-                        let new_value = (old_value as i32 + drift as i32).clamp(0, i32::from(u16::MAX)) as u16;
+                        let new_value =
+                            (old_value as i32 + drift as i32).clamp(0, i32::from(u16::MAX)) as u16;
                         state.registers.insert(addr, new_value);
 
                         warn!(

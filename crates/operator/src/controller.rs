@@ -62,7 +62,11 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
 
     // Create PLC client
     let plc_client = PLCClient::new(&plc.spec.device_address, plc.spec.port);
-    let recorder = Recorder::new(ctx.client.clone(), ctx.reporter.clone(), plc.object_ref(&()));
+    let recorder = Recorder::new(
+        ctx.client.clone(),
+        ctx.reporter.clone(),
+        plc.object_ref(&()),
+    );
 
     // Health check
     match plc_client.health_check().await {
@@ -134,7 +138,12 @@ async fn reconcile_register(
 
     info!(
         "PLC '{}' register '{}' @{}: current={}, desired={}, strategy={}",
-        plc_name, reg_name, register_spec.address, current, register_spec.desired_value, strategy_label
+        plc_name,
+        reg_name,
+        register_spec.address,
+        current,
+        register_spec.desired_value,
+        strategy_label
     );
 
     if current == register_spec.desired_value {
@@ -152,7 +161,11 @@ async fn reconcile_register(
             reason: "DriftDetected".to_string(),
             note: Some(format!(
                 "Register '{}' (addr {}) drifted: desired={}, actual={}, strategy={}",
-                reg_name, register_spec.address, register_spec.desired_value, current, strategy_label
+                reg_name,
+                register_spec.address,
+                register_spec.desired_value,
+                current,
+                strategy_label
             )),
             action: "Reconcile".to_string(),
             secondary: None,
@@ -162,8 +175,15 @@ async fn reconcile_register(
 
     match strategy {
         RemediationStrategy::Auto => {
-            apply_auto_correction(plc_name, register_spec, plc_client, status, recorder, metrics)
-                .await?;
+            apply_auto_correction(
+                plc_name,
+                register_spec,
+                plc_client,
+                status,
+                recorder,
+                metrics,
+            )
+            .await?;
         }
         RemediationStrategy::Alert => {
             info!(
@@ -257,10 +277,7 @@ async fn apply_auto_correction(
             );
         }
         Err(e) => {
-            status.set_error(format!(
-                "Failed to correct register '{}': {}",
-                reg_name, e
-            ));
+            status.set_error(format!("Failed to correct register '{}': {}", reg_name, e));
             error!("Failed to correct register '{}': {}", reg_name, e);
         }
     }
@@ -288,7 +305,7 @@ async fn update_status(
 
     api.patch_status(name, &PatchParams::default(), &patch)
         .await
-        .map_err(Error::KubeError)?;
+        .map_err(Error::Kube)?;
 
     Ok(())
 }
@@ -302,10 +319,10 @@ pub fn error_policy(_plc: Arc<IndustrialPLC>, error: &Error, _ctx: Arc<Context>)
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Kubernetes error: {0}")]
-    KubeError(#[from] kube::Error),
+    Kube(#[from] kube::Error),
 
     #[error("Serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
+    Serialization(#[from] serde_json::Error),
 
     #[error("PLC client error: {0}")]
     PlcClient(#[from] anyhow::Error),

@@ -62,7 +62,12 @@ pub fn print_plc_table(plcs: &[IndustrialPLC]) {
                     )
                 })
                 .unwrap_or_else(|| {
-                    ("-".to_string(), "PENDING".to_string(), "0".to_string(), "0".to_string())
+                    (
+                        "-".to_string(),
+                        "PENDING".to_string(),
+                        "0".to_string(),
+                        "0".to_string(),
+                    )
                 });
 
             let status_cell = match status.as_str() {
@@ -143,7 +148,11 @@ pub fn print_status_summary(status: &operator::crd::IndustrialPLCStatus, style: 
 
     table.add_row(vec![
         Cell::new("Drift Events (total):"),
-        Cell::new(total_drifts.to_string()).fg(if any_drift { Color::Yellow } else { Color::Green }),
+        Cell::new(total_drifts.to_string()).fg(if any_drift {
+            Color::Yellow
+        } else {
+            Color::Green
+        }),
     ]);
 
     table.add_row(vec![
@@ -179,7 +188,9 @@ pub fn print_status_summary(status: &operator::crd::IndustrialPLCStatus, style: 
                 Cell::new(format!(
                     "addr={} current={:?} drifts={} fixes={} strategy={}",
                     r.address,
-                    r.current_value.map(|v| v.to_string()).unwrap_or_else(|| "-".into()),
+                    r.current_value
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "-".into()),
                     r.drift_events,
                     r.corrections_applied,
                     strategy,

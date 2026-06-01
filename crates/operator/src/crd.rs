@@ -370,8 +370,17 @@ mod tests {
         // Per-register state
         assert!(status.register("conveyor-speed").unwrap().in_sync);
         assert!(!status.register("print-head-position").unwrap().in_sync);
-        assert_eq!(status.register("print-head-position").unwrap().drift_events, 1);
-        assert_eq!(status.register("print-head-position").unwrap().current_value, Some(9999));
+        assert_eq!(
+            status.register("print-head-position").unwrap().drift_events,
+            1
+        );
+        assert_eq!(
+            status
+                .register("print-head-position")
+                .unwrap()
+                .current_value,
+            Some(9999)
+        );
     }
 
     #[test]
@@ -399,4 +408,3 @@ mod tests {
         assert_eq!(status.last_error.as_deref(), Some("modbus timeout"));
     }
 }
-

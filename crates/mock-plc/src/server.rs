@@ -90,16 +90,18 @@ impl tokio_modbus::server::Service for ModbusService {
             }
             Request::WriteSingleRegister(addr, value) => {
                 if let Ok(mut state) = self.state.lock() {
-                    if state.registers.contains_key(&addr) {
-                        state.registers.insert(addr, value);
+                    if let std::collections::hash_map::Entry::Occupied(mut e) =
+                        state.registers.entry(addr)
+                    {
+                        e.insert(value);
                         info!("Register @{} written with value: {}", addr, value);
                         Response::WriteSingleRegister(addr, value)
                     } else {
                         warn!("WriteSingleRegister to unknown address @{}", addr);
-                        Response::Custom(0x86, Bytes::from_static(&[0x02])) // Illegal data address
+                        Response::Custom(0x86, Bytes::from_static(&[0x02]))
                     }
                 } else {
-                    Response::Custom(0x86, Bytes::from_static(&[0x04])) // Server failure
+                    Response::Custom(0x86, Bytes::from_static(&[0x04]))
                 }
             }
             _ => Response::Custom(0x80, Bytes::from_static(&[0x01])), // Illegal function
