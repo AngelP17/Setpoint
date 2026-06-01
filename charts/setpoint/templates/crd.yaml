@@ -35,6 +35,14 @@ spec:
                   type: integer
                   default: 502
                   description: "Modbus TCP port"
+                protocol:
+                  type: string
+                  default: ModbusTCP
+                  enum:
+                    - ModbusTCP
+                    - OpcUa
+                    - EtherNetIP
+                  description: "Protocol used to communicate with the PLC"
                 registers:
                   type: array
                   minItems: 1
@@ -52,6 +60,16 @@ spec:
                         type: integer
                       desiredValue:
                         type: integer
+                      minValue:
+                        type: integer
+                      maxValue:
+                        type: integer
+                      unit:
+                        type: string
+                      deadband:
+                        type: integer
+                      criticality:
+                        type: string
                       remediation:
                         type: object
                         properties:

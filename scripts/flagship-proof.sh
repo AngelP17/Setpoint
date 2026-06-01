@@ -67,6 +67,17 @@ require() {
 
 now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
+relpath() {
+    local target="$1"
+    if realpath --relative-to=. "$target" >/dev/null 2>&1; then
+        realpath --relative-to=. "$target"
+    elif [[ "$target" == "$REPO_ROOT/"* ]]; then
+        printf '%s\n' "${target#$REPO_ROOT/}"
+    else
+        realpath "$target"
+    fi
+}
+
 # ---- Subcommands ----
 
 do_cleanup() {
@@ -185,7 +196,7 @@ main() {
     kubectl get industrialplc "$PROOF_PLC" -o json \
         | jq '{name: .metadata.name, captured_at: "'"$(now_iso)"'", status: .status}' \
         > "$ARTIFACTS_DIR/drift-before.json"
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/drift-before.json")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/drift-before.json")"
 
     step "Launching drift-simulator (register @${DRIFT_REGISTER} -> ${DRIFT_VALUE}, every ${DRIFT_INTERVAL}s, for ${DRIFT_DURATION}s)"
     ./target/release/drift-simulator \
@@ -208,11 +219,11 @@ main() {
     kubectl get industrialplc "$PROOF_PLC" -o json \
         | jq '{name: .metadata.name, captured_at: "'"$(now_iso)"'", status: .status}' \
         > "$ARTIFACTS_DIR/drift-after.json"
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/drift-after.json")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/drift-after.json")"
 
     step "Capturing prometheus-metrics.txt"
     ./scripts/capture-metrics.sh > "$ARTIFACTS_DIR/prometheus-metrics.txt" 2>&1
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/prometheus-metrics.txt")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/prometheus-metrics.txt")"
 
     step "Capturing kubernetes-events.txt"
     kubectl get events \
@@ -220,12 +231,12 @@ main() {
         --sort-by=.lastTimestamp \
         -o wide \
         > "$ARTIFACTS_DIR/kubernetes-events.txt" 2>&1 || true
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/kubernetes-events.txt")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/kubernetes-events.txt")"
 
     step "Capturing operator-logs.txt (last 200 lines)"
     kubectl logs -l "$OPERATOR_POD_LABEL" --tail=200 \
         > "$ARTIFACTS_DIR/operator-logs.txt" 2>&1 || true
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/operator-logs.txt")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/operator-logs.txt")"
 
     step "Stopping drift-simulator (pid $DRIFT_PID)"
     if kill -0 "$DRIFT_PID" 2>/dev/null; then
@@ -238,11 +249,11 @@ main() {
 
     step "Generating report.md"
     ./scripts/generate-report.sh
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/report.md")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/report.md")"
 
     step "Aggregating proof.json"
     ./scripts/aggregate-proof.sh
-    ok "Saved $(realpath --relative-to=. "$ARTIFACTS_DIR/proof.json")"
+    ok "Saved $(relpath "$ARTIFACTS_DIR/proof.json")"
 
     printf "\n${C_GREEN}"
     cat << 'EOF'

@@ -32,6 +32,14 @@ spec:
                   type: integer
                   default: 502
                   description: "Modbus TCP port"
+                protocol:
+                  type: string
+                  default: ModbusTCP
+                  enum:
+                    - ModbusTCP
+                    - OpcUa
+                    - EtherNetIP
+                  description: "Protocol used to communicate with the PLC"
                 registers:
                   type: array
                   minItems: 1
@@ -52,6 +60,21 @@ spec:
                       desiredValue:
                         type: integer
                         description: "Desired value for this register"
+                      minValue:
+                        type: integer
+                        description: "Optional safe minimum value for this register"
+                      maxValue:
+                        type: integer
+                        description: "Optional safe maximum value for this register"
+                      unit:
+                        type: string
+                        description: "Optional engineering unit for this register"
+                      deadband:
+                        type: integer
+                        description: "Optional tolerance before drift is considered actionable"
+                      criticality:
+                        type: string
+                        description: "Optional business or safety criticality label"
                       remediation:
                         type: object
                         description: "Remediation policy for drift on this register"
