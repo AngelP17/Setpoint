@@ -72,6 +72,7 @@ against the current `kubectl` context.
 </tr>
 <tr>
 <td><img src="docs/screenshots/landing-home.png" alt="Setpoint landing page hero and platform overview" width="480" /></td>
+<td><img src="docs/screenshots/landing-proof.png" alt="Setpoint proof section showing command, telemetry, and verdict" width="480" /></td>
 </tr>
 <tr>
 <td align="center"><b>Control loop</b></td>
