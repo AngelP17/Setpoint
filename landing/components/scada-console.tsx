@@ -63,15 +63,21 @@ const INITIAL_REGISTERS: Register[] = [
 ];
 
 const getTimestamp = () => {
-  const now = new Date();
-  return now.toTimeString().split(" ")[0] ?? "00:00:00";
+  if (typeof window === "undefined") return "00:00:00";
+  return new Date().toTimeString().split(" ")[0] ?? "00:00:00";
+};
+
+let _idCounter = 0;
+const nextId = () => {
+  if (typeof window === "undefined") return `ssr-${++_idCounter}`;
+  return `c${Date.now().toString(36)}-${(++_idCounter).toString(36)}`;
 };
 
 function scadaReducer(state: SCADAState, action: SCADAAction): SCADAState {
   switch (action.type) {
     case "ADD_LOG": {
       const entry: LogEntry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: nextId(),
         time: getTimestamp(),
         level: action.level,
         message: action.message,
@@ -99,19 +105,19 @@ function scadaReducer(state: SCADAState, action: SCADAAction): SCADAState {
 
       const driftLogs: LogEntry[] = [
         {
-          id: Math.random().toString(36).substr(2, 9),
+          id: nextId(),
           time: getTimestamp(),
           level: "WARN",
           message: "DriftDetected: conveyor-speed actual=999 desired=2500 [Auto]",
         },
         {
-          id: Math.random().toString(36).substr(2, 9),
+          id: nextId(),
           time: getTimestamp(),
           level: "WARN",
           message: "DriftDetected: valve-pressure actual=195 desired=120 [Alert]",
         },
         {
-          id: Math.random().toString(36).substr(2, 9),
+          id: nextId(),
           time: getTimestamp(),
           level: "WARN",
           message: "DriftDetected: reactor-temp actual=92 desired=65 [Halt]",
@@ -139,7 +145,7 @@ function scadaReducer(state: SCADAState, action: SCADAAction): SCADAState {
         return reg;
       });
       const newLog: LogEntry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: nextId(),
         time: getTimestamp(),
         level: "OK",
         message: `DriftCorrected: conveyor-speed auto-corrected 999 -> 2500`,
@@ -152,7 +158,7 @@ function scadaReducer(state: SCADAState, action: SCADAAction): SCADAState {
     }
     case "REMEDIATE_ALERT": {
       const newLog: LogEntry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: nextId(),
         time: getTimestamp(),
         level: "INFO",
         message: `policy=Alert: valve-pressure drift (195) observed, no write applied`,
@@ -170,7 +176,7 @@ function scadaReducer(state: SCADAState, action: SCADAAction): SCADAState {
         return reg;
       });
       const newLog: LogEntry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: nextId(),
         time: getTimestamp(),
         level: "FAIL",
         message: `CRITICAL: policy=Halt triggered on reactor-temp. Marking IndustrialPLC Failed.`,
@@ -211,7 +217,7 @@ export function SCADAConsole() {
     logs: [
       {
         id: "init",
-        time: getTimestamp(),
+        time: "00:00:00",
         level: "INFO",
         message: "Setpoint SCADA controller loaded, listening on port 502",
       },

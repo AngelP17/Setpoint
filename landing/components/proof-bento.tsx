@@ -192,47 +192,6 @@ function AuditReport() {
   );
 }
 
-function OutcomeStatement() {
-  return (
-    <BentoCard className="md:col-span-12">
-      <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-center">
-        <div>
-          <div className="flex items-center gap-2 font-mono text-[10px] text-ink-400">
-            <ShieldCheck className="h-3.5 w-3.5 text-arc-300" weight="bold" />
-            outcome
-          </div>
-          <h3 className="mt-2 text-balance text-2xl font-medium leading-tight text-ink-50 md:text-3xl">
-            The drift was real. The operator did not write to a register it was told to leave alone.
-          </h3>
-          <p className="mt-3 max-w-[52ch] text-pretty text-sm leading-relaxed text-ink-300">
-            The proof runs the same reconcile loop the cluster runs in production. The
-            verdict is the verdict. If a future change breaks the Alert policy, the proof
-            fails before the change ships.
-          </p>
-        </div>
-        <dl className="grid grid-cols-2 gap-3 font-mono text-xs">
-          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
-            <dt className="text-ink-400">in_sync (before)</dt>
-            <dd className="mt-1 text-ink-200">true</dd>
-          </div>
-          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
-            <dt className="text-ink-400">in_sync (after)</dt>
-            <dd className="mt-1 text-ink-200">false</dd>
-          </div>
-          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
-            <dt className="text-ink-400">auto_corrected</dt>
-            <dd className="mt-1 text-ink-200">0 (alert register)</dd>
-          </div>
-          <div className="rounded-2xl border border-ink-700/60 bg-ink-900/50 p-3">
-            <dt className="text-ink-400">verdict</dt>
-            <dd className="mt-1 text-ok-500">PASS</dd>
-          </div>
-        </dl>
-      </div>
-    </BentoCard>
-  );
-}
-
 export function ProofBento() {
   return (
     <section id="proof" className="relative isolate border-t border-ink-700/40 py-20 md:py-28">
@@ -252,7 +211,6 @@ export function ProofBento() {
           <RegisterValueGraph />
           <DriftLog />
           <AuditReport />
-          <OutcomeStatement />
         </div>
       </div>
     </section>

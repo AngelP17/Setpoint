@@ -17,7 +17,6 @@ looks like" section.
 | 4 | `05-kubectl-events-drift.png` | proof-related Kubernetes event evidence | Reuse or refresh from a real drift run. |
 | 5 | `landing-flow.png` | "One control loop. Three ways to react." section (full section, ~1440x1650) | Capture the section after scrolling into view so all three steps render. |
 | 6 | `landing-shape.png` | "Shape the resource before it hits the cluster." section (full section, ~1440x918) | Capture the section with the form filled in to its defaults. |
-| 7 | `landing-home-full.png` | entire home page (1440x7441, dark mode, full scroll) | Full-page screenshot; useful for design review. |
 
 ## How to capture the README screenshots
 
