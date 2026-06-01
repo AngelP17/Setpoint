@@ -6,7 +6,7 @@
 
 ## Context
 
-FabGitOps requires a Kubernetes operator to manage Industrial PLC resources. The operator needs to:
+Setpoint requires a Kubernetes operator to manage Industrial PLC resources. The operator needs to:
 - Reconcile PLC state continuously with minimal latency
 - Handle Modbus TCP communication with industrial hardware
 - Run reliably for extended periods without restarts
@@ -18,7 +18,7 @@ The two primary language options for Kubernetes operators are:
 
 ## Decision
 
-We will use **Rust** (with kube-rs) to build the FabGitOps operator.
+We will use **Rust** (with kube-rs) to build the Setpoint operator.
 
 ## Consequences
 

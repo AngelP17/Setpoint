@@ -1,0 +1,38 @@
+{
+  "_template": true,
+  "_note": "Template only. A real proof run overwrites this file. See artifacts/README.md for the schema.",
+  "metadata": {
+    "name": "line-1-printer-plc",
+    "captured_at": "1970-01-01T00:00:00Z",
+    "stage": "after-drift-injection"
+  },
+  "status": {
+    "phase": "DriftDetected",
+    "lastUpdate": "1970-01-01T00:00:00Z",
+    "message": "Drift detected on register(s): print-head-position",
+    "registers": [
+      {
+        "name": "conveyor-speed",
+        "address": 4001,
+        "currentValue": 2500,
+        "inSync": true,
+        "driftEvents": 0,
+        "correctionsApplied": 0,
+        "lastDriftAt": null,
+        "lastCorrectionAt": null,
+        "strategy": "Auto"
+      },
+      {
+        "name": "print-head-position",
+        "address": 4002,
+        "currentValue": 9999,
+        "inSync": false,
+        "driftEvents": 1,
+        "correctionsApplied": 0,
+        "lastDriftAt": "1970-01-01T00:00:00Z",
+        "lastCorrectionAt": null,
+        "strategy": "Alert"
+      }
+    ]
+  }
+}

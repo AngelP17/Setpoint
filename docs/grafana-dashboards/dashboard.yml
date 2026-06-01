@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: 'FabGitOps Dashboards'
+  - name: 'Setpoint Dashboards'
     orgId: 1
-    folder: 'FabGitOps'
+    folder: 'Setpoint'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10

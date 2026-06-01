@@ -1,0 +1,31 @@
+# PromQL filter: setpoint_*
+# Captured at: 1970-01-01T00:00:00Z
+# Source: setpoint-operator-metrics:8080/metrics
+# Status: TEMPLATE — no real proof run captured this.
+
+# HELP setpoint_drift_events_total Total number of drift events detected, labeled by plc/register/strategy
+# TYPE setpoint_drift_events_total counter
+setpoint_drift_events_total{plc="line-1-printer-plc",register="conveyor-speed",strategy="Auto"} 0
+setpoint_drift_events_total{plc="line-1-printer-plc",register="print-head-position",strategy="Alert"} 0
+
+# HELP setpoint_corrections_total Total number of successful drift corrections, labeled by plc/register/strategy
+# TYPE setpoint_corrections_total counter
+setpoint_corrections_total{plc="line-1-printer-plc",register="conveyor-speed",strategy="Auto"} 0
+setpoint_corrections_total{plc="line-1-printer-plc",register="print-head-position",strategy="Auto"} 0
+
+# HELP setpoint_managed_plcs Number of IndustrialPLC resources being managed
+# TYPE setpoint_managed_plcs gauge
+setpoint_managed_plcs 1
+
+# HELP setpoint_plc_connection_status Connection status of PLC (1 = connected, 0 = disconnected)
+# TYPE setpoint_plc_connection_status gauge
+setpoint_plc_connection_status{plc="line-1-printer-plc"} 1
+
+# HELP setpoint_register_value Current register value, labeled by plc/register
+# TYPE setpoint_register_value gauge
+setpoint_register_value{plc="line-1-printer-plc",register="conveyor-speed"} 2500
+setpoint_register_value{plc="line-1-printer-plc",register="print-head-position"} 1200
+
+# HELP setpoint_reconciliation_duration_seconds Duration of the last reconciliation loop in seconds, labeled by plc
+# TYPE setpoint_reconciliation_duration_seconds gauge
+setpoint_reconciliation_duration_seconds{plc="line-1-printer-plc"} 0.012

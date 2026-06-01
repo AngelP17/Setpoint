@@ -1,496 +1,159 @@
-# FabGitOps
+# Setpoint
 
-> **The Infrastructure Layer** of the Industrial Cloud Stack  
-> A Kubernetes Operator for managing Industrial PLCs with GitOps principles
+> **GitOps for the factory floor.**
+> A Kubernetes operator that reconciles industrial PLCs as first-class
+> resources, with per-register remediation policies and a machine-checkable
+> proof of behavior.
 
-[![Local CI](https://img.shields.io/badge/CI-Local%20Script-blue)](./ci-local.sh)
+[![CI](https://github.com/apinzon/setpoint-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/apinzon/setpoint-operator/actions/workflows/ci.yml)
+[![E2E proof](https://github.com/apinzon/setpoint-operator/actions/workflows/e2e-proof.yml/badge.svg)](https://github.com/apinzon/setpoint-operator/actions/workflows/e2e-proof.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-## Overview
-
-FabGitOps is a production-ready Kubernetes operator built in Rust that manages industrial PLCs using GitOps principles. It continuously monitors PLC register values, detects drift from desired state, and automatically corrects deviations.
-
-### Key Features
-
-- 🦀 **Built in Rust** - Zero-cost abstractions, no GC pauses, memory safety
-- ⚡ **Real-time Drift Detection** - Polling-based monitoring with configurable intervals
-- 🔧 **Auto-Correction** - Automatically fixes drift when detected
-- 📊 **Prometheus Metrics** - Full observability with Grafana dashboards
-- 🎛️ **CLI Tool (`fabctl`)** - Developer-friendly terminal interface
-- 🌀 **Chaos Simulator** - Test drift detection with simulated hardware failures
-- ☸️ **Helm Charts** - Production-ready Kubernetes deployment
-- 🔄 **Local CI/CD** - Comprehensive local CI script with lint, test, build, and E2E testing
-- 🔒 **Security Hardened** - Non-root containers, vulnerability scanning
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "Kubernetes Cluster"
-        CLI[fabctl CLI]
-        OP[FabGitOps Operator<br/>Rust]
-        CRD[IndustrialPLC CRD]
-        MET[Metrics Server<br/>:8080/metrics]
-    end
-    
-    subgraph "Observability"
-        PROM[Prometheus]
-        GRAF[Grafana]
-    end
-    
-    subgraph "Industrial Network"
-        PLC1[PLC #1<br/>Physical]
-        PLC2[PLC #2<br/>Physical]
-        MOCK[Mock PLC<br/>Testing]
-    end
-    
-    CLI <-->|kubectl| OP
-    OP <-->|Watch/Reconcile| CRD
-    OP -->|Expose| MET
-    MET -->|Scrape| PROM
-    PROM -->|Visualize| GRAF
-    OP <-->|Modbus TCP| PLC1
-    OP <-->|Modbus TCP| PLC2
-    OP <-->|Modbus TCP| MOCK
-```
-
-## Quick Start
-
-### Prerequisites
-
-- [Rust](https://rustup.rs/) (1.75+)
-- [Docker](https://docs.docker.com/get-docker/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Helm](https://helm.sh/docs/intro/install/)
-- A Kubernetes cluster (local with [kind](https://kind.sigs.k8s.io/) or remote)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/fabgitops.git
-cd fabgitops
-
-# Build all binaries
-cargo build --release --workspace
-
-# Run the demo script
-./demo.sh
-```
-
-### Quick Demo
-
-```bash
-# Run the full interactive demo
-./demo.sh
-
-# Or run quick setup without interaction
-./demo.sh quick
-
-# Watch live PLC status
-./demo.sh watch
-
-# Clean up resources
-./demo.sh cleanup
-```
-
-## Manual Setup
-
-### 1. Start Observability Stack
-
-```bash
-docker-compose up -d
-```
-
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/fabgitops)
-
-### 2. Start Mock PLC (with Chaos Mode)
-
-```bash
-# Run locally
-./target/release/mock-plc --chaos --chaos-interval 10
-
-# Or via Docker Compose
- docker-compose --profile with-mock-plc up -d
-```
-
-### 3. Deploy Operator
-
-```bash
-# Apply CRD
-kubectl apply -f k8s/crd.yaml
-
-# Apply RBAC
-kubectl apply -f k8s/rbac.yaml
-
-# Deploy operator
-kubectl apply -f k8s/deployment.yaml
-
-# Or use Helm
-helm install fabgitops ./charts/fabgitops
-```
-
-### 4. Create a PLC Resource
-
-```bash
-kubectl apply -f k8s/sample-plc.yaml
-```
-
-### 5. Use fabctl CLI
-
-```bash
-# Check status
-./target/release/fabctl get-status
-
-# Watch live updates
-./target/release/fabctl watch --interval 2
-
-# Trigger manual sync
-./target/release/fabctl sync production-line-1 --force
-
-# List all PLCs
-./target/release/fabctl list
-
-# Describe a specific PLC
-./target/release/fabctl describe production-line-1
-```
-
-## CLI Reference
-
-### `fabctl get-status`
-
-Shows the current status of all PLCs in a table format (Git vs Reality).
-
-```bash
-./target/release/fabctl get-status
-./target/release/fabctl get-status production-line-1
-./target/release/fabctl get-status --output json
-```
-
-### `fabctl describe`
-
-Shows detailed information about a specific PLC.
-
-```bash
-./target/release/fabctl describe production-line-1
-```
-
-### `fabctl sync`
-
-Manually triggers reconciliation for a PLC.
-
-```bash
-./target/release/fabctl sync production-line-1
-./target/release/fabctl sync production-line-1 --force
-```
-
-### `fabctl watch`
-
-Continuously monitors PLC status with live updates.
-
-```bash
-./target/release/fabctl watch --interval 2
-```
-
-### `fabctl list`
-
-Lists all IndustrialPLC resources.
-
-```bash
-./target/release/fabctl list
-```
-
-### `fabctl version`
-
-Shows version information.
-
-```bash
-./target/release/fabctl version
-```
-
-## PLC Resource Specification
+![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?logo=rust)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28%2B-326CE5?logo=kubernetes)
 
 ```yaml
-apiVersion: fabgitops.io/v1
+apiVersion: setpoint.io/v1
 kind: IndustrialPLC
 metadata:
-  name: production-line-1
+  name: line-1-printer-plc
 spec:
-  deviceAddress: "192.168.1.100"  # PLC IP address
-  port: 502                       # Modbus TCP port (default: 502)
-  targetRegister: 4001            # Register to monitor
-  targetValue: 2500               # Desired value
-  pollIntervalSecs: 5             # Polling interval (default: 5)
-  autoCorrect: true               # Auto-correct drift (default: true)
-  tags:                           # Optional tags
-    - production
-    - line-1
+  deviceAddress: plc-1.factory.lan
+  port: 502
+  registers:
+    - name: conveyor-speed
+      address: 4001
+      desiredValue: 2500
+      remediation:
+        strategy: Auto
+        pollIntervalSecs: 5
+    - name: print-head-position
+      address: 4002
+      desiredValue: 1200
+      remediation:
+        strategy: Alert       # detected, not auto-corrected
+        pollIntervalSecs: 5
 ```
 
-### Spec Fields
+The desired state of every register is git-tracked YAML. The operator
+polls the live device, detects drift, and applies the per-register
+remediation policy. **Auto** silently writes the desired value back;
+**Alert** emits a `Warning DriftDetected` event and bumps a metric
+but does not write; **Halt** marks the resource `Failed`.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `deviceAddress` | string | required | IP address or hostname of the PLC |
-| `port` | integer | 502 | Modbus TCP port |
-| `targetRegister` | integer | required | Register address to monitor/control |
-| `targetValue` | integer | required | Desired value for the register |
-| `pollIntervalSecs` | integer | 5 | How often to poll the PLC (seconds) |
-| `autoCorrect` | boolean | true | Automatically correct drift when detected |
-| `tags` | array | [] | Optional tags for categorization |
+## Run the flagship proof
 
-### Status Fields
+The whole project is built around a single CI-checkable claim:
 
-| Field | Description |
-|-------|-------------|
-| `phase` | Current phase: Pending, Connecting, Connected, DriftDetected, Correcting, Failed |
-| `currentValue` | Last read value from the PLC |
-| `inSync` | Whether current value matches target |
-| `driftEvents` | Total number of drift events detected |
-| `correctionsApplied` | Total number of automatic corrections |
-| `lastError` | Last error message (if any) |
-| `message` | Human-readable status message |
-| `lastUpdate` | Timestamp of last status update |
+> An operator that auto-corrects an Alert-policy register is broken,
+> even if everything else looks fine.
 
-## Metrics
+Reproduce it locally:
 
-The operator exposes Prometheus metrics at `:8080/metrics`:
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `drift_events_total` | Counter | Total drift events detected |
-| `corrections_total` | Counter | Total corrections applied |
-| `managed_plcs` | Gauge | Number of PLCs being managed |
-| `plc_connection_status` | Gauge | PLC connection status (1=connected, 0=disconnected) |
-| `register_value` | Gauge | Current register value |
-| `reconciliation_duration_seconds` | Gauge | Reconciliation loop duration |
-
-## Project Structure
-
-```
-fabgitops/
-├── Cargo.toml                    # Workspace root
-├── Cargo.lock                    # Dependency lock file
-├── docker-compose.yml            # Prometheus + Grafana + Mock PLC
-├── prometheus.yml                # Prometheus config
-├── demo.sh                       # Interactive demo script
-├── Dockerfile.operator           # Operator container image
-├── Dockerfile.mock-plc           # Mock PLC container image
-├── charts/                       # Helm charts
-│   └── fabgitops/
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-│           ├── deployment.yaml
-│           ├── rbac.yaml
-│           ├── service.yaml
-│           ├── serviceaccount.yaml
-│           ├── servicemonitor.yaml
-│           ├── dashboard-configmap.yaml
-│           ├── crd.yaml
-│           └── _helpers.tpl
-├── crates/
-│   ├── operator/                 # Kubernetes Operator (Rust)
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── main.rs           # Entry point
-│   │       ├── lib.rs            # Library exports
-│   │       ├── crd.rs            # IndustrialPLC CRD definition
-│   │       ├── controller.rs     # Reconciliation loop
-│   │       ├── metrics.rs        # Prometheus metrics
-│   │       └── plc_client.rs     # Modbus TCP client
-│   │
-│   ├── fabctl/                   # CLI Tool
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── main.rs           # Entry point
-│   │       ├── commands.rs       # CLI commands
-│   │       ├── output.rs         # Pretty table formatting
-│   │       └── k8s_client.rs     # Kubernetes client
-│   │
-│   └── mock-plc/                 # Chaos Simulator
-│       ├── Cargo.toml
-│       └── src/
-│           ├── main.rs           # Entry point
-│           ├── server.rs         # Modbus TCP server
-│           └── chaos.rs          # Chaos mode implementation
-│
-├── k8s/                          # Raw K8s manifests (for dev)
-│   ├── crd.yaml                  # Custom Resource Definition
-│   ├── rbac.yaml                 # RBAC permissions
-│   ├── deployment.yaml           # Operator deployment
-│   ├── deployment-local.yaml     # Local development deployment
-│   ├── mock-plc.yaml             # Mock PLC deployment
-│   └── sample-plc.yaml           # Sample PLC resources
-│
-├── ci-local.sh                   # Local CI/CD script
-│
-├── docs/
-│   ├── adr/                      # Architecture Decision Records
-│   │   ├── 001-why-rust-operator.md
-│   │   └── 002-modbus-tcp-strategy.md
-│   ├── grafana-dashboards/       # Grafana dashboard configs
-│   │   ├── dashboard.yml
-│   │   └── fabgitops-dashboard.json
-│   └── grafana-datasources/      # Grafana datasource configs
-│       └── datasource.yml
-│
-└── README.md                     # This file
+```sh
+make flagship-proof
+cat artifacts/latest/proof.json
+cat artifacts/latest/report.md
 ```
 
-## Development
+This boots a kind cluster, deploys the operator + mock PLC, injects
+deterministic drift on the Alert-policy register, and writes a
+binary `verdict: PASS | FAIL` plus a human-readable report. The
+same flow runs in CI on every PR; see
+[`.github/workflows/e2e-proof.yml`](.github/workflows/e2e-proof.yml).
 
-### Running Tests
+## What it looks like
 
-```bash
-# Run all tests
-cargo test --workspace
+A live run shows the per-register state in `setpointctl watch` and on
+the Grafana dashboard. See [`docs/screenshots/`](docs/screenshots/) for
+captures from a real proof run.
 
-# Run with logging
-RUST_LOG=debug cargo test --workspace -- --nocapture
+| | |
+| - | - |
+| `setpointctl watch` | one row per register; red means drift detected, green means in sync |
+| Grafana | `setpoint_drift_events_total{register, strategy}` and `setpoint_register_value{register}` gauges |
+| `kubectl get events` | `Warning DriftDetected` on the IndustrialPLC, with desired/actual in the message |
 
-# Run specific crate tests
-cargo test -p operator
-cargo test -p fabctl
-cargo test -p mock-plc
+## Install
+
+### Helm
+
+```sh
+helm repo add setpoint https://apinzon.github.io/setpoint-operator
+helm install setpoint setpoint/setpoint
 ```
 
-### Building Docker Images
+### Raw manifests
 
-```bash
-# Build operator image
-docker build -f Dockerfile.operator -t fabgitops-operator:latest .
-
-# Build mock-plc image
-docker build -f Dockerfile.mock-plc -t fabgitops-mock-plc:latest .
+```sh
+kubectl apply -f k8s/crd.yaml
+kubectl apply -f k8s/rbac.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f config/samples/industrialplc-line1.yaml
 ```
 
-Or use the CI script:
-```bash
-./ci-local.sh
+The sample targets an in-cluster `setpoint-mock-plc` service on
+port 5502; deploy `k8s/mock-plc.yaml` first if you don't have real
+hardware. Use `k8s/deployment-local.yaml` (imagePullPolicy: Never,
+tag `:latest`) for local kind/minikube work.
+
+## How it works
+
+```
+┌──────────┐  watch  ┌─────────────┐  poll  ┌──────────────┐
+│  git /   │ ──────▶ │  Setpoint   │ ─────▶ │  Modbus PLC  │
+│  kubectl │ ◀────── │  operator   │ ◀───── │  (registers) │
+└──────────┘  patch  └─────────────┘  write └──────────────┘
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │  setpoint_*      │
+                     │  Prometheus      │
+                     │  metrics         │
+                     └──────────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │  Warning DriftDetected │
+                  │  / Normal              │
+                  │  DriftCorrected events │
+                  └────────────────────────┘
 ```
 
-### Running Locally
+The full architecture, including failure modes and reconciliation
+loop, lives in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-```bash
-# Start the operator (requires kubectl configured)
-cargo run -p operator
+## Repository layout
 
-# Start mock-plc
-cargo run -p mock-plc -- --chaos
-
-# Use fabctl
-cargo run -p fabctl -- get-status
+```
+crates/
+  operator/         the Kubernetes operator (reconciler + metrics)
+  setpointctl/      CLI (get-status, watch, sync)
+  mock-plc/         Modbus TCP server with optional chaos mode
+  drift-simulator/  overwrites a register on demand for the proof run
+k8s/                raw manifests (CRD, RBAC, deployment, sample, mock)
+charts/setpoint/    Helm chart
+config/samples/     reference IndustrialPLC resources
+docs/               architecture, ADRs, executive summary, proof
+artifacts/          proof run output (templates ship here; real run overwrites)
+scripts/            flagship-proof.sh, capture-metrics.sh, generate-report.sh
 ```
 
 ## Architecture Decision Records
 
-See [docs/adr/](docs/adr/) for detailed architecture decisions:
+| ADR | Decision |
+| --- | -------- |
+| [001](docs/adr/001-why-rust-operator.md) | Use Rust + kube-rs for the operator |
+| [002](docs/adr/002-modbus-tcp-strategy.md) | Target Modbus TCP first |
+| [003](docs/adr/003-rename-to-setpoint.md) | Rename the project from FabGitOps to Setpoint |
 
-- [ADR 001: Why Rust for the Operator](docs/adr/001-why-rust-operator.md) - Safety, no GC pauses, memory safety
-- [ADR 002: Modbus TCP Polling Strategy](docs/adr/002-modbus-tcp-strategy.md) - Polling vs interrupts for legacy hardware
+## Documentation
 
-## CI/CD Pipeline
-
-The project uses a local CI script (`ci-local.sh`) that replicates a full CI/CD pipeline:
-
-1. **Lint & Test** - `cargo fmt`, `cargo clippy`, `cargo test`
-2. **Build Images** - Docker images for operator and mock-plc
-3. **Helm Lint** - Chart validation and templating
-4. **Security Scan** - Trivy vulnerability scanning (optional)
-5. **E2E Test** - Kind cluster with Helm deployment and validation (optional)
-
-### Running CI Locally
-
-```bash
-# Run basic checks (lint, test, build, helm)
-./ci-local.sh
-
-# Run with security scan
-./ci-local.sh --security
-
-# Run with E2E tests (requires Kind)
-./ci-local.sh --e2e
-
-# Run all checks
-./ci-local.sh --all
-```
-
-## Troubleshooting
-
-### Operator won't start
-
-```bash
-# Check logs
-kubectl logs deployment/fabgitops-operator
-
-# Check if CRD is installed
-kubectl get crd industrialplcs.fabgitops.io
-
-# Check RBAC permissions
-kubectl auth can-i list industrialplcs --as=system:serviceaccount:default:fabgitops-operator
-```
-
-### PLC shows as Failed
-
-```bash
-# Check PLC connectivity
-kubectl describe industrialplc production-line-1
-
-# Check operator logs
-kubectl logs deployment/fabgitops-operator | grep -i error
-
-# Check Kubernetes events
-kubectl get events --field-selector involvedObject.kind=IndustrialPLC
-```
-
-### Metrics not showing in Grafana
-
-```bash
-# Check Prometheus targets
-curl http://localhost:9090/api/v1/targets
-
-# Check operator metrics endpoint
-kubectl port-forward svc/fabgitops-operator-metrics 8080:8080
-curl http://localhost:8080/metrics
-
-# Verify ServiceMonitor (if using Prometheus Operator)
-kubectl get servicemonitor
-```
-
-### Mock PLC connection issues
-
-```bash
-# Check if mock-plc is running
-lsof -i :5502
-
-# Test Modbus connection
-cargo run -p fabctl -- get-status
-
-# Check mock-plc logs
-pkill -f mock-plc && cargo run -p mock-plc -- --chaos
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- [Executive summary](docs/executive-summary.md) — one-pager, non-technical
+- [Proof of concept](docs/proof.md) — technical deep-dive on the proof run
+- [Live demo script](docs/demo-script.md) — 5-minute demo walkthrough
+- [Architecture](docs/ARCHITECTURE.md) — system design
+- [Screenshots capture list](docs/screenshots/README.md) — what to capture, how
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [kube-rs](https://github.com/kube-rs/kube-rs) - Kubernetes client for Rust
-- [tokio-modbus](https://github.com/slowtec/tokio-modbus) - Modbus TCP library
-- [clap](https://github.com/clap-rs/clap) - Command line argument parser
-- [axum](https://github.com/tokio-rs/axum) - Web framework for metrics endpoint
-
----
-
-**FabGitOps** - The Infrastructure Layer of Your Industrial Cloud Stack
+MIT. See [LICENSE](LICENSE).

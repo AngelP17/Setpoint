@@ -1,0 +1,16 @@
+# Operator log tail
+# Captured at: 1970-01-01T00:00:00Z
+# Source: kubectl logs -l app=setpoint-operator --tail=200
+# Status: TEMPLATE — no real proof run captured this.
+
+2026-01-01T00:00:00Z  INFO setpoint_operator: Starting Setpoint Operator...
+2026-01-01T00:00:00Z  INFO setpoint_operator: Connected to Kubernetes cluster
+2026-01-01T00:00:00Z  INFO setpoint_operator: Metrics initialized
+2026-01-01T00:00:00Z  INFO setpoint_operator: Starting metrics server on 0.0.0.0:8080
+2026-01-01T00:00:00Z  INFO setpoint_operator: Starting IndustrialPLC controller for setpoint.io/v1...
+2026-01-01T00:00:01Z  INFO setpoint_operator::controller: Reconciling PLC: default/line-1-printer-plc (2 register(s))
+2026-01-01T00:00:01Z  INFO setpoint_operator::controller: PLC default/line-1-printer-plc is reachable
+2026-01-01T00:00:01Z  INFO setpoint_operator::controller: PLC 'line-1-printer-plc' register 'conveyor-speed' @4001: current=2500, desired=2500, strategy=Auto
+2026-01-01T00:00:01Z  INFO setpoint_operator::controller: PLC 'line-1-printer-plc' register 'print-head-position' @4002: current=1200, desired=1200, strategy=Alert
+2026-01-01T00:00:30Z  INFO setpoint_operator::controller: PLC 'line-1-printer-plc' register 'conveyor-speed' @4001: current=2500, desired=2500, strategy=Auto
+2026-01-01T00:00:30Z  INFO setpoint_operator::controller: PLC 'line-1-printer-plc' register 'print-head-position' @4002: current=1200, desired=1200, strategy=Alert

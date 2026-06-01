@@ -3,7 +3,7 @@ version: '3.8'
 services:
   prometheus:
     image: prom/prometheus:v2.48.0
-    container_name: fabgitops-prometheus
+    container_name: setpoint-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -16,15 +16,15 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     networks:
-      - fabgitops-network
+      - setpoint-network
 
   grafana:
     image: grafana/grafana:10.2.0
-    container_name: fabgitops-grafana
+    container_name: setpoint-grafana
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=fabgitops
+      - GF_SECURITY_ADMIN_PASSWORD=setpoint
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
     volumes:
@@ -34,14 +34,14 @@ services:
     depends_on:
       - prometheus
     networks:
-      - fabgitops-network
+      - setpoint-network
 
   # Optional: Mock PLC for local development
   mock-plc:
     build:
       context: .
       dockerfile: Dockerfile.mock-plc
-    container_name: fabgitops-mock-plc
+    container_name: setpoint-mock-plc
     ports:
       - "5502:5502"
     environment:
@@ -51,17 +51,39 @@ services:
       - --port=5502
       - --value=2500
       - --register=4001
+      - --value2=1200
+      - --register2=4002
       - --chaos
-      - --chaos-interval=10
+      - --chaos-interval=30
     networks:
-      - fabgitops-network
+      - setpoint-network
     profiles:
       - with-mock-plc
+
+  # Optional: Drift simulator for the flagship proof run
+  drift-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-plc
+    container_name: setpoint-drift-simulator
+    environment:
+      - RUST_LOG=info
+    command:
+      - --target=setpoint-mock-plc:5502
+      - --register=4002
+      - --value=9999
+      - --interval=10
+    networks:
+      - setpoint-network
+    profiles:
+      - with-mock-plc
+    depends_on:
+      - mock-plc
 
 volumes:
   prometheus-data:
   grafana-data:
 
 networks:
-  fabgitops-network:
+  setpoint-network:
     driver: bridge

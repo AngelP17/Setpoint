@@ -1,6 +1,6 @@
-# FabGitOps Architecture
+# Setpoint Architecture
 
-This document provides a comprehensive overview of the FabGitOps system architecture, design patterns, and implementation details.
+This document provides a comprehensive overview of the Setpoint system architecture, design patterns, and implementation details.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ This document provides a comprehensive overview of the FabGitOps system architec
 
 ## System Overview
 
-FabGitOps is a Kubernetes operator that implements GitOps principles for managing industrial PLCs (Programmable Logic Controllers). It bridges the gap between modern cloud-native infrastructure and legacy industrial hardware.
+Setpoint is a Kubernetes operator that reconciles industrial PLCs (Programmable Logic Controllers) as first-class Kubernetes resources. It bridges the gap between modern cloud-native infrastructure and legacy industrial hardware.
 
 ### Core Philosophy
 
@@ -29,7 +29,7 @@ FabGitOps is a Kubernetes operator that implements GitOps principles for managin
 ```mermaid
 graph TB
     subgraph "Control Plane (Kubernetes)"
-        subgraph "FabGitOps Operator"
+        subgraph "Setpoint Operator"
             CTRL[Controller<br/>Reconcile Loop]
             MET[Metrics<br/>Prometheus]
             EVT[Events<br/>K8s Events]
@@ -57,7 +57,7 @@ graph TB
 
 ### 1. Kubernetes Operator
 
-The operator is the core of FabGitOps, built using the [kube-rs](https://github.com/kube-rs/kube-rs) framework.
+The operator is the core of Setpoint, built using the [kube-rs](https://github.com/kube-rs/kube-rs) framework.
 
 #### Controller Loop
 
@@ -91,21 +91,42 @@ loop {
 The `IndustrialPLC` CRD defines the desired state of a PLC:
 
 ```yaml
-apiVersion: fabgitops.io/v1
+apiVersion: setpoint.io/v1
 kind: IndustrialPLC
 spec:
   deviceAddress: "192.168.1.100"    # Network location
   port: 502                         # Modbus TCP port
-  targetRegister: 4001              # Register to control
-  targetValue: 2500                 # Desired value
-  pollIntervalSecs: 5               # Reconciliation frequency
-  autoCorrect: true                 # Enable drift correction
+  registers:                        # Multi-register, per-register policy
+    - name: conveyor-speed
+      address: 4001
+      desiredValue: 2500
+      remediation:
+        strategy: Auto              # silently write back
+        pollIntervalSecs: 5
+    - name: print-head-position
+      address: 4002
+      desiredValue: 1200
+      remediation:
+        strategy: Alert             # detect only, do not write
+        pollIntervalSecs: 5
 status:
   phase: Connected                  # Current state machine phase
-  currentValue: 2500                # Last read value
-  inSync: true                      # Sync status
-  driftEvents: 3                    # Total drift count
-  correctionsApplied: 3             # Total corrections
+  message: "All registers in sync"
+  registers:                        # Per-register status
+    - name: conveyor-speed
+      address: 4001
+      currentValue: 2500
+      inSync: true
+      driftEvents: 0
+      correctionsApplied: 0
+      strategy: Auto
+    - name: print-head-position
+      address: 4002
+      currentValue: 1200
+      inSync: true
+      driftEvents: 0
+      correctionsApplied: 0
+      strategy: Alert
 ```
 
 #### State Machine
@@ -272,15 +293,20 @@ The operator uses least-privilege RBAC:
 ```yaml
 rules:
   # Manage IndustrialPLC resources
-  - apiGroups: [fabgitops.io]
+  - apiGroups: [setpoint.io]
     resources: [industrialplcs]
     verbs: [get, list, watch, create, update, patch, delete]
-  
+
   # Update status subresource
-  - apiGroups: [fabgitops.io]
+  - apiGroups: [setpoint.io]
     resources: [industrialplcs/status]
     verbs: [get, update, patch]
-  
+
+  # Update finalizers
+  - apiGroups: [setpoint.io]
+    resources: [industrialplcs/finalizers]
+    verbs: [update]
+
   # Emit events
   - apiGroups: [""]
     resources: [events]
@@ -291,7 +317,7 @@ rules:
 
 ```dockerfile
 # Non-root user
-USER fabgitops
+USER setpoint
 
 # Read-only root filesystem
 readOnlyRootFilesystem: true
@@ -393,7 +419,7 @@ The project uses a local CI script (`ci-local.sh`) instead of GitHub Actions for
 ```mermaid
 flowchart TB
     subgraph K8S[Kubernetes Cluster]
-        OP[FabGitOps Operator<br/>Deployment: 1 replica]
+        OP[Setpoint Operator<br/>Deployment: 1 replica]
         OBS[Prometheus/Grafana<br/>Docker Compose or In-Cluster]
     end
     

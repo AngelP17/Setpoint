@@ -1,0 +1,19 @@
+apiVersion: v2
+name: setpoint
+description: Setpoint - GitOps control plane for industrial PLC drift detection and auto-remediation
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+keywords:
+  - industrial
+  - plc
+  - modbus
+  - operator
+  - gitops
+  - setpoint
+home: https://github.com/apinzon/setpoint-operator
+sources:
+  - https://github.com/apinzon/setpoint-operator
+maintainers:
+  - name: Setpoint Maintainers
+    email: apinzon@example.com

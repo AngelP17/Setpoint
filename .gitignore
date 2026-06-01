@@ -33,3 +33,8 @@ kubeconfig
 
 # Test artifacts
 *.pid
+
+# Node / Landing page
+node_modules/
+.next/
+landing/out/

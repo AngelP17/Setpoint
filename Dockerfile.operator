@@ -11,12 +11,15 @@ RUN apt-get update && apt-get install -y \
 
 # Copy workspace configuration
 COPY Cargo.toml ./
+COPY Cargo.lock ./
 COPY crates/operator/Cargo.toml ./crates/operator/
 COPY crates/operator/src ./crates/operator/src/
-COPY crates/fabctl/Cargo.toml ./crates/fabctl/
-COPY crates/fabctl/src ./crates/fabctl/src/
+COPY crates/setpointctl/Cargo.toml ./crates/setpointctl/
+COPY crates/setpointctl/src ./crates/setpointctl/src/
 COPY crates/mock-plc/Cargo.toml ./crates/mock-plc/
 COPY crates/mock-plc/src ./crates/mock-plc/src/
+COPY crates/drift-simulator/Cargo.toml ./crates/drift-simulator/
+COPY crates/drift-simulator/src ./crates/drift-simulator/src/
 
 # Build the operator
 RUN cargo build --release -p operator
@@ -28,20 +31,21 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Create non-root user
-RUN useradd -m -u 1000 -s /bin/bash fabgitops
+RUN useradd -m -u 1000 -s /bin/bash setpoint
 
 # Copy binary from builder
-COPY --from=builder /build/target/release/operator /usr/local/bin/fabgitops-operator
+COPY --from=builder /build/target/release/operator /usr/local/bin/setpoint-operator
 
 # Set ownership
-RUN chown fabgitops:fabgitops /usr/local/bin/fabgitops-operator
+RUN chown setpoint:setpoint /usr/local/bin/setpoint-operator
 
 # Switch to non-root user
-USER fabgitops
+USER setpoint
 
 # Expose metrics port
 EXPOSE 8080
@@ -51,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the operator
-ENTRYPOINT ["/usr/local/bin/fabgitops-operator"]
+ENTRYPOINT ["/usr/local/bin/setpoint-operator"]

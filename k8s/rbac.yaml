@@ -1,17 +1,16 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: fabgitops-operator
+  name: setpoint-operator
   namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: fabgitops-operator
+  name: setpoint-operator
 rules:
-  # Manage IndustrialPLC resources
   - apiGroups:
-      - fabgitops.io
+      - setpoint.io
     resources:
       - industrialplcs
     verbs:
@@ -23,7 +22,7 @@ rules:
       - patch
       - delete
   - apiGroups:
-      - fabgitops.io
+      - setpoint.io
     resources:
       - industrialplcs/status
     verbs:
@@ -31,12 +30,11 @@ rules:
       - update
       - patch
   - apiGroups:
-      - fabgitops.io
+      - setpoint.io
     resources:
       - industrialplcs/finalizers
     verbs:
       - update
-  # Manage events
   - apiGroups:
       - ""
     resources:
@@ -44,7 +42,6 @@ rules:
     verbs:
       - create
       - patch
-  # Read configmaps and secrets
   - apiGroups:
       - ""
     resources:
@@ -58,12 +55,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: fabgitops-operator
+  name: setpoint-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: fabgitops-operator
+  name: setpoint-operator
 subjects:
   - kind: ServiceAccount
-    name: fabgitops-operator
+    name: setpoint-operator
     namespace: default

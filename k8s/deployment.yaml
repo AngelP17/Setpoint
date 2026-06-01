@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fabgitops-operator
+  name: setpoint-operator
   namespace: default
   labels:
-    app: fabgitops-operator
+    app: setpoint-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fabgitops-operator
+      app: setpoint-operator
   template:
     metadata:
       labels:
-        app: fabgitops-operator
+        app: setpoint-operator
     spec:
-      serviceAccountName: fabgitops-operator
+      serviceAccountName: setpoint-operator
       containers:
-        - name: operator
-          image: ghcr.io/yourusername/fabgitops-operator:latest
+        - name: setpoint
+          image: ghcr.io/apinzon/setpoint-operator:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -54,10 +54,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fabgitops-operator-metrics
+  name: setpoint-operator-metrics
   namespace: default
   labels:
-    app: fabgitops-operator
+    app: setpoint-operator
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8080"
@@ -70,4 +70,4 @@ spec:
       protocol: TCP
       name: metrics
   selector:
-    app: fabgitops-operator
+    app: setpoint-operator

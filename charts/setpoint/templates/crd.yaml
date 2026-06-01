@@ -1,0 +1,125 @@
+{{- if .Values.crd.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: industrialplcs.setpoint.io
+  labels:
+    {{- include "setpoint.labels" . | nindent 4 }}
+spec:
+  group: setpoint.io
+  names:
+    kind: IndustrialPLC
+    plural: industrialplcs
+    shortNames:
+      - plc
+    singular: industrialplc
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - deviceAddress
+                - registers
+              properties:
+                deviceAddress:
+                  type: string
+                  description: "IP address or hostname of the PLC device"
+                port:
+                  type: integer
+                  default: 502
+                  description: "Modbus TCP port"
+                registers:
+                  type: array
+                  minItems: 1
+                  description: "Registers to monitor and reconcile on this PLC"
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - address
+                      - desiredValue
+                    properties:
+                      name:
+                        type: string
+                      address:
+                        type: integer
+                      desiredValue:
+                        type: integer
+                      remediation:
+                        type: object
+                        properties:
+                          strategy:
+                            type: string
+                            enum:
+                              - Auto
+                              - Alert
+                              - Halt
+                            default: Auto
+                          pollIntervalSecs:
+                            type: integer
+                            default: 5
+                          maxCorrectionsPerHour:
+                            type: integer
+                            default: 10
+                          cooldownSecs:
+                            type: integer
+                            default: 30
+                tags:
+                  type: array
+                  items:
+                    type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - Pending
+                    - Connecting
+                    - Connected
+                    - DriftDetected
+                    - Correcting
+                    - Failed
+                lastUpdate:
+                  type: string
+                registers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      address:
+                        type: integer
+                      currentValue:
+                        type: integer
+                      inSync:
+                        type: boolean
+                      driftEvents:
+                        type: integer
+                      correctionsApplied:
+                        type: integer
+                      lastDriftAt:
+                        type: string
+                      lastCorrectionAt:
+                        type: string
+                      strategy:
+                        type: string
+                        enum:
+                          - Auto
+                          - Alert
+                          - Halt
+                lastError:
+                  type: string
+                message:
+                  type: string
+      subresources:
+        status: {}
+{{- end }}

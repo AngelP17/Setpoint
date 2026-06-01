@@ -1,0 +1,76 @@
+name: e2e proof
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  proof:
+    name: flagship proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Install kind
+        run: |
+          curl -fsSL -o /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+          sudo chmod +x /usr/local/bin/kind
+
+      - name: Build binaries
+        run: cargo build --release --workspace
+
+      - name: Create kind cluster
+        run: kind create cluster --name setpoint-e2e --wait 5m
+
+      - name: Build Docker images
+        run: |
+          docker build -t setpoint-operator:latest -f Dockerfile.operator .
+          docker build -t setpoint-mock-plc:latest   -f Dockerfile.mock-plc .
+
+      - name: Load images into kind
+        run: |
+          kind load docker-image setpoint-operator:latest --name setpoint-e2e
+          kind load docker-image setpoint-mock-plc:latest   --name setpoint-e2e
+
+      - name: Run flagship proof
+        run: ./scripts/flagship-proof.sh
+        env:
+          ARTIFACTS_DIR: artifacts/latest
+
+      - name: Verify verdict
+        run: |
+          jq -e '.verdict == "PASS"' artifacts/latest/proof.json
+          jq -e '.detection.registers_in_drift >= 1' artifacts/latest/proof.json
+          jq -e '.detection.alert_violations == 0' artifacts/latest/proof.json
+
+      - name: Upload proof artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: setpoint-proof
+          path: artifacts/latest/
+          retention-days: 30
+
+      - name: Teardown
+        if: always()
+        run: kind delete cluster --name setpoint-e2e || true

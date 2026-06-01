@@ -1,21 +1,24 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 use tokio_modbus::prelude::*;
 use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-/// Shared state for the mock PLC
+/// Shared state for the mock PLC. Each address maps to its current value.
 pub struct PLCState {
-    pub register_value: u16,
-    pub register_address: u16,
+    /// address -> current value
+    pub registers: HashMap<u16, u16>,
 }
 
 impl PLCState {
-    pub fn new(initial_value: u16, register_address: u16) -> Self {
+    pub fn new(initial_values: HashMap<u16, u16>) -> Self {
+        if initial_values.is_empty() {
+            warn!("Starting with zero registers exposed; reads will return IllegalDataAddress");
+        }
         Self {
-            register_value: initial_value,
-            register_address,
+            registers: initial_values,
         }
     }
 }
@@ -69,10 +72,17 @@ impl tokio_modbus::server::Service for ModbusService {
         let response = match req {
             Request::ReadHoldingRegisters(addr, count) => {
                 if let Ok(state) = self.state.lock() {
-                    if addr == state.register_address && count == 1 {
-                        Response::ReadHoldingRegisters(vec![state.register_value])
+                    if count == 1 {
+                        match state.registers.get(&addr) {
+                            Some(value) => Response::ReadHoldingRegisters(vec![*value]),
+                            None => Response::Custom(0x83, Bytes::from_static(&[0x02])), // Illegal data address
+                        }
                     } else {
-                        Response::Custom(0x83, Bytes::from_static(&[0x02])) // Illegal data address
+                        // Multi-register read: gather present addresses, return what we have.
+                        let values: Vec<u16> = (addr..addr.saturating_add(count))
+                            .map(|a| state.registers.get(&a).copied().unwrap_or(0))
+                            .collect();
+                        Response::ReadHoldingRegisters(values)
                     }
                 } else {
                     Response::Custom(0x83, Bytes::from_static(&[0x04])) // Server failure
@@ -80,11 +90,12 @@ impl tokio_modbus::server::Service for ModbusService {
             }
             Request::WriteSingleRegister(addr, value) => {
                 if let Ok(mut state) = self.state.lock() {
-                    if addr == state.register_address {
-                        state.register_value = value;
-                        info!("Register {} written with value: {}", addr, value);
+                    if state.registers.contains_key(&addr) {
+                        state.registers.insert(addr, value);
+                        info!("Register @{} written with value: {}", addr, value);
                         Response::WriteSingleRegister(addr, value)
                     } else {
+                        warn!("WriteSingleRegister to unknown address @{}", addr);
                         Response::Custom(0x86, Bytes::from_static(&[0x02])) // Illegal data address
                     }
                 } else {

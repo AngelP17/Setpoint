@@ -1,0 +1,10 @@
+# Kubernetes events for industrialplc/line-1-printer-plc
+# Captured at: 1970-01-01T00:00:00Z
+# Source: kubectl get events --field-selector involvedObject.name=line-1-printer-plc
+# Status: TEMPLATE — no real proof run captured this.
+
+LAST SEEN   TYPE      REASON              OBJECT                                MESSAGE
+10s         Normal    DriftCorrected      industrialplc/line-1-printer-plc      Register 'conveyor-speed' (addr 4001) corrected to 2500
+20s         Warning   DriftDetected       industrialplc/line-1-printer-plc      Register 'conveyor-speed' (addr 4001) drifted: desired=2500, actual=2300, strategy=Auto
+30s         Warning   DriftDetected       industrialplc/line-1-printer-plc      Register 'print-head-position' (addr 4002) drifted: desired=1200, actual=9999, strategy=Alert
+40s         Normal    ReconcileSuccess    industrialplc/line-1-printer-plc      All registers in sync

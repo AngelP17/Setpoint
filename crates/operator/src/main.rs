@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
-    info!("Starting FabGitOps Operator...");
+    info!("Starting Setpoint Operator...");
 
     // Initialize Kubernetes client
     let client = Client::try_default().await?;
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
         client: client.clone(),
         metrics: metrics.clone(),
         reporter: Reporter {
-            controller: "fabgitops-operator".to_string(),
+            controller: "setpoint-operator".to_string(),
             instance: std::env::var("HOSTNAME").ok(),
         },
     });
@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Start controller
-    info!("Starting IndustrialPLC controller...");
+    info!("Starting IndustrialPLC controller for setpoint.io/v1...");
     let plcs = Api::<IndustrialPLC>::all(client.clone());
 
     // Ensure CRD exists

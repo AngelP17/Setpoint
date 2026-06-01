@@ -6,7 +6,7 @@
 
 ## Context
 
-FabGitOps needs to communicate with Industrial PLCs using Modbus TCP protocol. The key decisions are:
+Setpoint needs to communicate with Industrial PLCs using Modbus TCP protocol. The key decisions are:
 1. How to detect drift (polling vs. interrupts)
 2. How often to poll
 3. How to handle connection failures
@@ -23,7 +23,7 @@ We will implement an **Active Reconciliation Loop with Polling** strategy.
 
 2. **Circuit Breaker Pattern**: After 3 consecutive failures, the operator backs off with exponential delay (max 60s)
 
-3. **Auto-Correction**: When drift is detected and `autoCorrect: true`, the operator immediately writes the target value
+3. **Per-register remediation**: When drift is detected, the operator applies the per-register policy (`Auto`, `Alert`, or `Halt`) rather than a single per-device boolean.
 
 4. **Metrics Export**: Every poll updates Prometheus metrics for observability
 
@@ -80,8 +80,21 @@ We will implement an **Active Reconciliation Loop with Polling** strategy.
 
 ```yaml
 spec:
-  pollIntervalSecs: 5  # Configurable per PLC
-  autoCorrect: true    # Enable automatic drift correction
+  registers:
+    - name: conveyor-speed
+      address: 4001
+      desiredValue: 2500
+      remediation:
+        strategy: Auto
+        pollIntervalSecs: 5
+        maxCorrectionsPerHour: 60
+        cooldownSecs: 5
+    - name: print-head-position
+      address: 4002
+      desiredValue: 1200
+      remediation:
+        strategy: Alert    # detect, do not write
+        pollIntervalSecs: 5
 ```
 
 ### Circuit Breaker Logic
@@ -102,10 +115,12 @@ match plc_client.read_register(register).await {
 
 ### Metrics Exposed
 
-- `drift_events_total`: Counter of drift detections
-- `corrections_total`: Counter of successful corrections
-- `plc_connection_status`: Gauge (1=connected, 0=disconnected)
-- `reconciliation_duration_seconds`: Histogram of reconciliation time
+- `setpoint_drift_events_total{plc,register,strategy}`: Counter of drift detections
+- `setpoint_corrections_total{plc,register,strategy}`: Counter of successful corrections
+- `setpoint_plc_connection_status{plc}`: Gauge (1=connected, 0=disconnected)
+- `setpoint_register_value{plc,register}`: Gauge of the last-read value
+- `setpoint_reconciliation_duration_seconds{plc}`: Gauge of the last reconcile loop duration
+- `setpoint_managed_plcs`: Gauge of the number of IndustrialPLC resources being managed
 
 ## References
 

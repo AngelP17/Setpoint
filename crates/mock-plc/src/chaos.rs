@@ -1,6 +1,7 @@
+use crate::server::PLCState;
 use rand::Rng;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::time::{interval, Duration};
 use tracing::{info, warn};
 
@@ -36,8 +37,8 @@ impl ChaosEngine {
         }
     }
 
-    /// Start the chaos engine in background
-    pub fn spawn(&self, register_value: Arc<std::sync::Mutex<u16>>) {
+    /// Start the chaos engine in background. Drifts a random register every tick.
+    pub fn spawn(&self, state: Arc<Mutex<PLCState>>) {
         if !self.config.enabled {
             info!("Chaos mode disabled");
             return;
@@ -49,7 +50,6 @@ impl ChaosEngine {
 
         running.store(true, Ordering::SeqCst);
 
-        // Spawn a blocking task for the RNG since ThreadRng is not Send
         std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async move {
@@ -57,23 +57,28 @@ impl ChaosEngine {
                 let mut rng = rand::thread_rng();
 
                 info!(
-                    "🌀 CHAOS MODE ACTIVATED! Drifting every {}s (max drift: {})",
+                    "🌀 CHAOS MODE ACTIVATED! Drifting a random register every {}s (max drift: {})",
                     interval_secs, max_drift
                 );
 
                 while running.load(Ordering::SeqCst) {
                     ticker.tick().await;
 
-                    let drift: i16 = rng.gen_range(-(max_drift as i16)..=max_drift as i16);
-
-                    if let Ok(mut value) = register_value.lock() {
-                        let old_value = *value;
-                        let new_value = (*value as i16 + drift).clamp(0, i16::MAX) as u16;
-                        *value = new_value;
+                    if let Ok(mut state) = state.lock() {
+                        if state.registers.is_empty() {
+                            continue;
+                        }
+                        // Pick a random register
+                        let addrs: Vec<u16> = state.registers.keys().copied().collect();
+                        let addr = addrs[rng.gen_range(0..addrs.len())];
+                        let old_value = state.registers[&addr];
+                        let drift: i16 = rng.gen_range(-(max_drift as i16)..=max_drift as i16);
+                        let new_value = (old_value as i32 + drift as i32).clamp(0, i32::from(u16::MAX)) as u16;
+                        state.registers.insert(addr, new_value);
 
                         warn!(
-                            "🌀 CHAOS DRIFT! Register changed: {} → {} (drift: {})",
-                            old_value, new_value, drift
+                            "🌀 CHAOS DRIFT! Register @{} changed: {} → {} (drift: {})",
+                            addr, old_value, new_value, drift
                         );
                     }
                 }

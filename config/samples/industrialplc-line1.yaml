@@ -1,0 +1,43 @@
+apiVersion: setpoint.io/v1
+kind: IndustrialPLC
+metadata:
+  name: line-1-printer-plc
+  namespace: default
+  labels:
+    app: setpoint
+    line: "1"
+    site: "plant-alpha"
+spec:
+  deviceAddress: "setpoint-mock-plc.default.svc.cluster.local"
+  port: 5502
+  registers:
+    # Conveyor belt drive speed (RPM * 10). Production critical.
+    # Strategy: Auto. The operator will write this register back to the
+    # desired value on every drift detection.
+    - name: conveyor-speed
+      address: 4001
+      desiredValue: 2500
+      remediation:
+        strategy: Auto
+        pollIntervalSecs: 5
+        maxCorrectionsPerHour: 60
+        cooldownSecs: 5
+
+    # Print head lateral position (encoder ticks). An external controller
+    # has been known to bump this when operators run calibration
+    # overrides at the panel. Auto-correcting it mid-print would ruin
+    # the run, so this register is Alert-only: the operator detects
+    # drift and emits a Warning event, but does not write.
+    - name: print-head-position
+      address: 4002
+      desiredValue: 1200
+      remediation:
+        strategy: Alert
+        pollIntervalSecs: 5
+        maxCorrectionsPerHour: 0
+        cooldownSecs: 30
+  tags:
+    - production
+    - printer-line
+    - critical
+    - line-1

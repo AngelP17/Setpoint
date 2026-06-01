@@ -12,9 +12,9 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'fabgitops-operator'
+  - job_name: 'setpoint-operator'
     static_configs:
-      - targets: ['192.168.102.103:8081']
+      - targets: ['setpoint-operator-metrics:8080']
     metrics_path: /metrics
     scrape_interval: 5s
     scrape_timeout: 3s
