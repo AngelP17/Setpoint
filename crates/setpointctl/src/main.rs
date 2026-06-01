@@ -33,15 +33,13 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Describe { name } => cmd_describe(&client, &cli.namespace, name).await,
         Commands::Sync { name, force } => cmd_sync(&client, &cli.namespace, name, *force).await,
-        Commands::Plan { file } => {
-            match cmd_plan(file).await {
-                Ok(exit_code) => std::process::exit(exit_code),
-                Err(e) => {
-                    eprintln!("{} {}", "Error:".red().bold(), e);
-                    std::process::exit(1);
-                }
+        Commands::Plan { file } => match cmd_plan(file).await {
+            Ok(exit_code) => std::process::exit(exit_code),
+            Err(e) => {
+                eprintln!("{} {}", "Error:".red().bold(), e);
+                std::process::exit(1);
             }
-        }
+        },
         Commands::Watch { interval } => cmd_watch(&client, &cli.namespace, *interval).await,
         Commands::List => cmd_list(&client, &cli.namespace).await,
         Commands::Version => cmd_version().await,

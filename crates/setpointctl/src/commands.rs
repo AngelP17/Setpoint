@@ -332,14 +332,20 @@ pub async fn cmd_version() -> Result<()> {
 
 /// Execute the plan command (pre-flight dry-run reconciliation)
 pub async fn cmd_plan(file_path: &str) -> Result<i32> {
-    use std::fs::File;
-    use operator::plc_client::build_adapter;
-    use operator::crd::{IndustrialPLC, RemediationStrategy};
     use anyhow::Context;
+    use operator::crd::{IndustrialPLC, RemediationStrategy};
+    use operator::plc_client::build_adapter;
+    use std::fs::File;
 
-    println!("{} Loading local manifest from {}...", "🔍".cyan(), file_path.bold());
-    let f = File::open(file_path).with_context(|| format!("Failed to open manifest file: {}", file_path))?;
-    let plc: IndustrialPLC = serde_yaml::from_reader(f).with_context(|| "Failed to parse YAML manifest as IndustrialPLC")?;
+    println!(
+        "{} Loading local manifest from {}...",
+        "🔍".cyan(),
+        file_path.bold()
+    );
+    let f = File::open(file_path)
+        .with_context(|| format!("Failed to open manifest file: {}", file_path))?;
+    let plc: IndustrialPLC = serde_yaml::from_reader(f)
+        .with_context(|| "Failed to parse YAML manifest as IndustrialPLC")?;
 
     println!(
         "{} Target PLC: {} @ {}:{}",
@@ -349,21 +355,37 @@ pub async fn cmd_plan(file_path: &str) -> Result<i32> {
         plc.spec.port
     );
 
-    let plc_client = build_adapter(&plc.spec.protocol, plc.spec.device_address.clone(), plc.spec.port);
-    
+    let plc_client = build_adapter(
+        &plc.spec.protocol,
+        plc.spec.device_address.clone(),
+        plc.spec.port,
+    );
+
     println!("{}", "Checking connectivity...".dimmed());
     match plc_client.health_check().await {
         Ok(true) => {
             println!("{} PLC is reachable. Reading registers...", "✓".green());
         }
         Ok(false) | Err(_) => {
-            println!("{} PLC is unreachable. Cannot perform plan dry-run.", "✗".red());
-            anyhow::bail!("PLC at {}:{} is unreachable", plc.spec.device_address, plc.spec.port);
+            println!(
+                "{} PLC is unreachable. Cannot perform plan dry-run.",
+                "✗".red()
+            );
+            anyhow::bail!(
+                "PLC at {}:{} is unreachable",
+                plc.spec.device_address,
+                plc.spec.port
+            );
         }
     }
 
     println!();
-    println!("{}", "📋 Pre-Flight SCADA Reconciliation Plan:".bold().underline());
+    println!(
+        "{}",
+        "📋 Pre-Flight SCADA Reconciliation Plan:"
+            .bold()
+            .underline()
+    );
     println!();
 
     let mut has_drift = false;
@@ -431,11 +453,20 @@ pub async fn cmd_plan(file_path: &str) -> Result<i32> {
 
     println!();
     if has_drift {
-        println!("{}", "⚠️  Drift detected! Reconciliation is required.".yellow().bold());
+        println!(
+            "{}",
+            "⚠️  Drift detected! Reconciliation is required."
+                .yellow()
+                .bold()
+        );
         Ok(2)
     } else {
-        println!("{}", "✓ All registers in sync. No actions required.".green().bold());
+        println!(
+            "{}",
+            "✓ All registers in sync. No actions required."
+                .green()
+                .bold()
+        );
         Ok(0)
     }
 }
-

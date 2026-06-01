@@ -51,15 +51,15 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
     // 1. Check if the object is being deleted
     if let Some(_deletion_timestamp) = &plc.metadata.deletion_timestamp {
         info!("Deleting PLC resource: {}/{}", namespace, name);
-        
+
         // Log a final zero-trust audit block documenting deletion
-        let audit_block = crate::crypto::generate_audit_block(
-            name.clone(),
-            Vec::new(),
-            "Deleted".to_string(),
+        let audit_block =
+            crate::crypto::generate_audit_block(name.clone(), Vec::new(), "Deleted".to_string());
+        info!(
+            "Zero-Trust deletion audit block generated: hash={}",
+            audit_block.hash
         );
-        info!("Zero-Trust deletion audit block generated: hash={}", audit_block.hash);
-        
+
         // Remove the finalizer
         let mut finalizers = plc.metadata.finalizers.clone().unwrap_or_default();
         if let Some(pos) = finalizers.iter().position(|f| f == finalizer_name) {
@@ -69,7 +69,9 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
                     "finalizers": finalizers
                 }
             });
-            api.patch(&name, &PatchParams::default(), &Patch::Merge(patch)).await.map_err(Error::Kube)?;
+            api.patch(&name, &PatchParams::default(), &Patch::Merge(patch))
+                .await
+                .map_err(Error::Kube)?;
         }
         return Ok(Action::await_change());
     }
@@ -83,7 +85,9 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
                 "finalizers": finalizers
             }
         });
-        api.patch(&name, &PatchParams::default(), &Patch::Merge(patch)).await.map_err(Error::Kube)?;
+        api.patch(&name, &PatchParams::default(), &Patch::Merge(patch))
+            .await
+            .map_err(Error::Kube)?;
     }
 
     let mut status = plc
@@ -111,7 +115,11 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
     }
 
     // Create PLC client
-    let plc_client = build_adapter(&plc.spec.protocol, plc.spec.device_address.clone(), plc.spec.port);
+    let plc_client = build_adapter(
+        &plc.spec.protocol,
+        plc.spec.device_address.clone(),
+        plc.spec.port,
+    );
     let recorder = Recorder::new(
         ctx.client.clone(),
         ctx.reporter.clone(),
@@ -159,7 +167,8 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
             RemediationStrategy::Auto => "Auto",
             RemediationStrategy::Alert => "Alert",
             RemediationStrategy::Halt => "Halt",
-        }.to_string();
+        }
+        .to_string();
 
         audit_registers.push(crate::crypto::RegisterAuditState {
             name: r_spec.name.clone(),
@@ -176,11 +185,8 @@ pub async fn reconcile(plc: Arc<IndustrialPLC>, ctx: Arc<Context>) -> Result<Act
         "Reconciled".to_string()
     };
 
-    let audit_block = crate::crypto::generate_audit_block(
-        name.clone(),
-        audit_registers,
-        action_taken,
-    );
+    let audit_block =
+        crate::crypto::generate_audit_block(name.clone(), audit_registers, action_taken);
 
     info!(
         "Cryptographic Audit Block generated: hash={}, prev_hash={}, signature={}",
@@ -225,17 +231,18 @@ async fn reconcile_register(
     // 1. Gather all historical/rolling values for context
     let mut last_correction_at = None;
     let mut corrections_last_hour = 0;
-    
+
     if let Some(rs) = status.register(reg_name) {
         if let Some(last_ts) = &rs.last_correction_at {
             if let Ok(last) = DateTime::parse_from_rfc3339(last_ts) {
                 last_correction_at = Some(last.with_timezone(&Utc));
             }
         }
-        
+
         // Count rolling corrections in the last hour
         let cutoff = Utc::now() - chrono::Duration::hours(1);
-        corrections_last_hour = rs.recent_corrections
+        corrections_last_hour = rs
+            .recent_corrections
             .iter()
             .filter(|c| {
                 if let Ok(dt) = DateTime::parse_from_rfc3339(&c.timestamp) {
@@ -264,7 +271,13 @@ async fn reconcile_register(
 
     info!(
         "PLC '{}' register '{}' @{}: current={}, desired={}, strategy={}. Decision = {:?}",
-        plc_name, reg_name, register_spec.address, current, register_spec.desired_value, strategy_label, decision
+        plc_name,
+        reg_name,
+        register_spec.address,
+        current,
+        register_spec.desired_value,
+        strategy_label,
+        decision
     );
 
     // 3. Act on Decision
@@ -310,7 +323,10 @@ async fn reconcile_register(
             );
             status.mark_drift(reg_name, register_spec.desired_value, current);
         }
-        crate::policy::PolicyDecision::Correct { desired_value, reason } => {
+        crate::policy::PolicyDecision::Correct {
+            desired_value,
+            reason,
+        } => {
             metrics.record_drift(plc_name, reg_name, strategy_label);
             status.mark_drift(reg_name, desired_value, current);
 

@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use tokio::net::TcpStream;
 use tokio_modbus::prelude::*;
 
@@ -41,7 +41,10 @@ impl PLCAdapter for ModbusAdapter {
 
         ctx.disconnect().await.ok();
 
-        response.first().copied().context("Empty response from Modbus PLC")
+        response
+            .first()
+            .copied()
+            .context("Empty response from Modbus PLC")
     }
 
     async fn write_register(&self, register: u16, value: u16) -> Result<()> {
@@ -92,12 +95,20 @@ impl PLCAdapter for OpcUaAdapter {
     }
 
     async fn write_register(&self, address: u16, value: u16) -> Result<()> {
-        tracing::info!("OPC UA Secure Channel write: address={}, value={}", address, value);
+        tracing::info!(
+            "OPC UA Secure Channel write: address={}, value={}",
+            address,
+            value
+        );
         Ok(())
     }
 
     async fn health_check(&self) -> Result<bool> {
-        tracing::info!("OPC UA Secure Channel health check: {}:{}", self.address, self.port);
+        tracing::info!(
+            "OPC UA Secure Channel health check: {}:{}",
+            self.address,
+            self.port
+        );
         Ok(true)
     }
 }
@@ -121,18 +132,30 @@ impl PLCAdapter for EtherNetIPAdapter {
     }
 
     async fn write_register(&self, address: u16, value: u16) -> Result<()> {
-        tracing::info!("EtherNet/IP CIP write: address={}, value={}", address, value);
+        tracing::info!(
+            "EtherNet/IP CIP write: address={}, value={}",
+            address,
+            value
+        );
         Ok(())
     }
 
     async fn health_check(&self) -> Result<bool> {
-        tracing::info!("EtherNet/IP CIP health check: {}:{}", self.address, self.port);
+        tracing::info!(
+            "EtherNet/IP CIP health check: {}:{}",
+            self.address,
+            self.port
+        );
         Ok(true)
     }
 }
 
 /// Factory helper to build the appropriate adapter
-pub fn build_adapter(protocol: &crate::crd::PLCProtocol, address: String, port: u16) -> Box<dyn PLCAdapter> {
+pub fn build_adapter(
+    protocol: &crate::crd::PLCProtocol,
+    address: String,
+    port: u16,
+) -> Box<dyn PLCAdapter> {
     match protocol {
         crate::crd::PLCProtocol::ModbusTCP => Box::new(ModbusAdapter::new(address, port)),
         crate::crd::PLCProtocol::OpcUa => Box::new(OpcUaAdapter::new(address, port)),

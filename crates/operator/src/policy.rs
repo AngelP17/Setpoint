@@ -1,25 +1,14 @@
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
 use crate::crd::RemediationStrategy;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PolicyDecision {
-    NoOp {
-        reason: String,
-    },
-    DetectOnly {
-        reason: String,
-    },
-    Correct {
-        desired_value: u16,
-        reason: String,
-    },
-    Halt {
-        reason: String,
-    },
-    Skip {
-        reason: String,
-    },
+    NoOp { reason: String },
+    DetectOnly { reason: String },
+    Correct { desired_value: u16, reason: String },
+    Halt { reason: String },
+    Skip { reason: String },
 }
 
 #[derive(Clone, Debug)]
@@ -42,7 +31,10 @@ impl PolicyEngine {
     pub fn evaluate(ctx: &PolicyContext) -> PolicyDecision {
         if ctx.current_value == ctx.desired_value {
             return PolicyDecision::NoOp {
-                reason: format!("Register '{}' is in sync at {}", ctx.register_name, ctx.desired_value),
+                reason: format!(
+                    "Register '{}' is in sync at {}",
+                    ctx.register_name, ctx.desired_value
+                ),
             };
         }
 
@@ -74,7 +66,9 @@ impl PolicyEngine {
                 }
 
                 // 2. Max corrections per hour check
-                if ctx.max_corrections_per_hour > 0 && ctx.corrections_last_hour >= ctx.max_corrections_per_hour {
+                if ctx.max_corrections_per_hour > 0
+                    && ctx.corrections_last_hour >= ctx.max_corrections_per_hour
+                {
                     return PolicyDecision::Skip {
                         reason: format!(
                             "Max corrections per hour ({}) reached, skipping",
@@ -114,7 +108,10 @@ mod tests {
             cooldown_secs: 10,
         };
 
-        assert!(matches!(PolicyEngine::evaluate(&ctx), PolicyDecision::NoOp { .. }));
+        assert!(matches!(
+            PolicyEngine::evaluate(&ctx),
+            PolicyDecision::NoOp { .. }
+        ));
     }
 
     #[test]
@@ -131,7 +128,10 @@ mod tests {
             cooldown_secs: 10,
         };
 
-        assert!(matches!(PolicyEngine::evaluate(&ctx), PolicyDecision::Halt { .. }));
+        assert!(matches!(
+            PolicyEngine::evaluate(&ctx),
+            PolicyDecision::Halt { .. }
+        ));
     }
 
     #[test]
@@ -148,7 +148,10 @@ mod tests {
             cooldown_secs: 10,
         };
 
-        assert!(matches!(PolicyEngine::evaluate(&ctx), PolicyDecision::DetectOnly { .. }));
+        assert!(matches!(
+            PolicyEngine::evaluate(&ctx),
+            PolicyDecision::DetectOnly { .. }
+        ));
     }
 
     #[test]
@@ -187,7 +190,10 @@ mod tests {
             cooldown_secs: 30,
         };
 
-        assert!(matches!(PolicyEngine::evaluate(&ctx), PolicyDecision::Skip { .. }));
+        assert!(matches!(
+            PolicyEngine::evaluate(&ctx),
+            PolicyDecision::Skip { .. }
+        ));
     }
 
     #[test]
@@ -204,6 +210,9 @@ mod tests {
             cooldown_secs: 30,
         };
 
-        assert!(matches!(PolicyEngine::evaluate(&ctx), PolicyDecision::Skip { .. }));
+        assert!(matches!(
+            PolicyEngine::evaluate(&ctx),
+            PolicyDecision::Skip { .. }
+        ));
     }
 }

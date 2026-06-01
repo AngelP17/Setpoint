@@ -1,19 +1,19 @@
 use axum::{
-    routing::{get, post},
-    Router, Json,
-    http::{Method, HeaderValue, StatusCode},
+    http::{HeaderValue, Method, StatusCode},
     response::sse::{Event, KeepAlive, Sse},
+    routing::{get, post},
+    Json, Router,
 };
-use tower_http::cors::CorsLayer;
-use serde::{Serialize, Deserialize};
+use futures::stream;
 use kube::{Api, Client};
 use operator::crd::{IndustrialPLC, RemediationStrategy};
-use operator::policy::{PolicyEngine, PolicyContext, PolicyDecision};
+use operator::policy::{PolicyContext, PolicyDecision, PolicyEngine};
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio_stream::Stream;
-use futures::stream;
-use tracing::{info, error, Level};
+use tower_http::cors::CorsLayer;
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -38,7 +38,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/health", get(health_handler))
         .route("/api/plcs", get(get_plcs_handler))
         .route("/api/plcs/:namespace/:name", get(get_plc_handler))
-        .route("/api/plcs/:namespace/:name/sync", post(trigger_sync_handler))
+        .route(
+            "/api/plcs/:namespace/:name/sync",
+            post(trigger_sync_handler),
+        )
         .route("/api/events", get(get_events_handler))
         .route("/api/audit", get(get_audit_handler))
         .route("/api/simulate-policy", post(simulate_policy_handler))
@@ -48,12 +51,9 @@ async fn main() -> anyhow::Result<()> {
     let addr: SocketAddr = "0.0.0.0:8081".parse()?;
     info!("API Gateway server listening on {}", addr);
 
-    axum::serve(
-        tokio::net::TcpListener::bind(addr).await.unwrap(),
-        app,
-    )
-    .await
-    .unwrap();
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
+        .await
+        .unwrap();
 
     Ok(())
 }
@@ -66,13 +66,19 @@ async fn health_handler() -> &'static str {
 async fn get_plcs_handler() -> Result<Json<Vec<IndustrialPLC>>, (StatusCode, String)> {
     let client = Client::try_default().await.map_err(|e| {
         error!("K8s Client error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create K8s client: {}", e))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to create K8s client: {}", e),
+        )
     })?;
 
     let api: Api<IndustrialPLC> = Api::all(client);
     let plc_list = api.list(&Default::default()).await.map_err(|e| {
         error!("Failed to list IndustrialPLCs: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to list PLCs: {}", e))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to list PLCs: {}", e),
+        )
     })?;
 
     Ok(Json(plc_list.items))
@@ -82,14 +88,15 @@ async fn get_plcs_handler() -> Result<Json<Vec<IndustrialPLC>>, (StatusCode, Str
 async fn get_plc_handler(
     axum::extract::Path((namespace, name)): axum::extract::Path<(String, String)>,
 ) -> Result<Json<IndustrialPLC>, (StatusCode, String)> {
-    let client = Client::try_default().await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    let client = Client::try_default()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let api: Api<IndustrialPLC> = Api::namespaced(client, &namespace);
-    let plc = api.get(&name).await.map_err(|e| {
-        (StatusCode::NOT_FOUND, format!("PLC not found: {}", e))
-    })?;
+    let plc = api
+        .get(&name)
+        .await
+        .map_err(|e| (StatusCode::NOT_FOUND, format!("PLC not found: {}", e)))?;
 
     Ok(Json(plc))
 }
@@ -98,12 +105,12 @@ async fn get_plc_handler(
 async fn trigger_sync_handler(
     axum::extract::Path((namespace, name)): axum::extract::Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let client = Client::try_default().await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    let client = Client::try_default()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let api: Api<IndustrialPLC> = Api::namespaced(client, &namespace);
-    
+
     // Patch annotation
     let mut annotations = std::collections::BTreeMap::new();
     annotations.insert(
@@ -119,21 +126,29 @@ async fn trigger_sync_handler(
 
     api.patch(&name, &kube::api::PatchParams::default(), &patch)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to patch PLC: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to patch PLC: {}", e),
+            )
+        })?;
 
-    Ok(Json(serde_json::json!({ "status": "success", "message": "Manual sync triggered" })))
+    Ok(Json(
+        serde_json::json!({ "status": "success", "message": "Manual sync triggered" }),
+    ))
 }
 
 // Handler to get K8s events
 async fn get_events_handler() -> Result<Json<Vec<serde_json::Value>>, (StatusCode, String)> {
-    let client = Client::try_default().await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    let client = Client::try_default()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let api: Api<k8s_openapi::api::core::v1::Event> = Api::all(client);
-    let events = api.list(&kube::api::ListParams::default().limit(50)).await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    let events = api
+        .list(&kube::api::ListParams::default().limit(50))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let filtered: Vec<_> = events.items
         .into_iter()
@@ -159,7 +174,12 @@ async fn get_audit_handler() -> Result<Json<serde_json::Value>, (StatusCode, Str
     // Try to query the operator service on port 8080
     let url = "http://localhost:8080/audit";
     let client = reqwest::Client::new();
-    if let Ok(res) = client.get(url).timeout(Duration::from_millis(500)).send().await {
+    if let Ok(res) = client
+        .get(url)
+        .timeout(Duration::from_millis(500))
+        .send()
+        .await
+    {
         if let Ok(json) = res.json::<serde_json::Value>().await {
             return Ok(Json(json));
         }
@@ -170,7 +190,7 @@ async fn get_audit_handler() -> Result<Json<serde_json::Value>, (StatusCode, Str
     let verifying_key = operator::crypto::get_verifying_key();
     let vk_hex = hex::encode(verifying_key.to_bytes());
     let mock_ledger = operator::crypto::get_ledger("line-1-printer-plc");
-    
+
     Ok(Json(serde_json::json!({
         "verifyingKey": vk_hex,
         "blocks": mock_ledger
@@ -199,18 +219,16 @@ struct SimulationResponse {
 }
 
 // Handler to run a mock policy simulation
-async fn simulate_policy_handler(
-    Json(body): Json<SimulationRequest>,
-) -> Json<SimulationResponse> {
+async fn simulate_policy_handler(Json(body): Json<SimulationRequest>) -> Json<SimulationResponse> {
     let strategy = match body.strategy.as_str() {
         "Halt" => RemediationStrategy::Halt,
         "Alert" => RemediationStrategy::Alert,
         _ => RemediationStrategy::Auto,
     };
 
-    let last_correction_at = body.last_correction_elapsed_secs.map(|s| {
-        chrono::Utc::now() - chrono::Duration::seconds(s as i64)
-    });
+    let last_correction_at = body
+        .last_correction_elapsed_secs
+        .map(|s| chrono::Utc::now() - chrono::Duration::seconds(s as i64));
 
     let ctx = PolicyContext {
         plc_name: "simulated-plc".to_string(),
@@ -251,7 +269,10 @@ async fn simulate_policy_handler(
             reason,
             "High".to_string(),
         ),
-        PolicyDecision::Correct { desired_value, reason } => (
+        PolicyDecision::Correct {
+            desired_value,
+            reason,
+        } => (
             "Reconciliation Triggered".to_string(),
             format!("Write desired value {} back to register", desired_value),
             reason,
@@ -268,11 +289,12 @@ async fn simulate_policy_handler(
 }
 
 // Handler for SSE events stream
-async fn stream_events_handler() -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
+async fn stream_events_handler() -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>>
+{
     let mock_stream = stream::unfold(0, |state| async move {
         // Send a telemetry event update every 5 seconds
         tokio::time::sleep(Duration::from_secs(5)).await;
-        
+
         let event_json = match state % 4 {
             0 => serde_json::json!({
                 "timestamp": chrono::Utc::now().to_rfc3339(),

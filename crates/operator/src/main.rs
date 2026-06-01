@@ -1,15 +1,18 @@
 mod controller;
 mod crd;
+mod crypto;
+mod leader;
 mod metrics;
 mod plc_client;
-mod crypto;
 mod policy;
-mod leader;
 
 use crate::controller::{error_policy, reconcile, Context};
 use crate::crd::IndustrialPLC;
 use crate::metrics::OperatorMetrics;
-use axum::{routing::{get, post}, Router, Json};
+use axum::{
+    routing::{get, post},
+    Json, Router,
+};
 use futures::StreamExt;
 use kube::runtime::events::Reporter;
 use kube::{Api, Client};
@@ -34,7 +37,8 @@ async fn main() -> anyhow::Result<()> {
     info!("Connected to Kubernetes cluster");
 
     // Initialize leader election
-    let operator_namespace = std::env::var("POD_NAMESPACE").unwrap_or_else(|_| "default".to_string());
+    let operator_namespace =
+        std::env::var("POD_NAMESPACE").unwrap_or_else(|_| "default".to_string());
     crate::leader::start_leader_election(client.clone(), operator_namespace).await;
 
     // Initialize metrics
@@ -268,10 +272,12 @@ async fn validate_handler(
     if let Some(old_val) = req.old_object {
         if let Ok(old_plc) = serde_json::from_value::<IndustrialPLC>(old_val) {
             for old_r in &old_plc.spec.registers {
-                let is_safety_critical = old_r.name.contains("halt") 
+                let is_safety_critical = old_r.name.contains("halt")
                     || old_r.criticality.as_deref() == Some("SafetyCritical");
 
-                if is_safety_critical && old_r.remediation.strategy == crate::crd::RemediationStrategy::Halt {
+                if is_safety_critical
+                    && old_r.remediation.strategy == crate::crd::RemediationStrategy::Halt
+                {
                     if let Some(new_r) = plc.spec.registers.iter().find(|r| r.name == old_r.name) {
                         if new_r.remediation.strategy != crate::crd::RemediationStrategy::Halt {
                             return Json(AdmissionReviewResponse {

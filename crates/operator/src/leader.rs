@@ -1,16 +1,18 @@
+use k8s_openapi::api::coordination::v1::{Lease, LeaseSpec};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::{MicroTime, ObjectMeta};
+use kube::api::PostParams;
+use kube::{Api, Client};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
-use k8s_openapi::api::coordination::v1::{Lease, LeaseSpec};
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::{MicroTime, ObjectMeta};
-use kube::{Api, Client};
-use kube::api::PostParams;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 static IS_LEADER: OnceLock<std::sync::Arc<AtomicBool>> = OnceLock::new();
 
 pub fn get_leader_handle() -> std::sync::Arc<AtomicBool> {
-    IS_LEADER.get_or_init(|| std::sync::Arc::new(AtomicBool::new(false))).clone()
+    IS_LEADER
+        .get_or_init(|| std::sync::Arc::new(AtomicBool::new(false)))
+        .clone()
 }
 
 pub fn is_leader() -> bool {
@@ -24,14 +26,15 @@ pub fn set_leader(val: bool) {
 pub fn get_holder_id() -> String {
     std::env::var("POD_NAME")
         .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| {
-            format!("setpoint-operator-{}", std::process::id())
-        })
+        .unwrap_or_else(|_| format!("setpoint-operator-{}", std::process::id()))
 }
 
 pub async fn start_leader_election(client: Client, namespace: String) {
     let holder_id = get_holder_id();
-    info!("Starting lease leader election with holder ID: {}", holder_id);
+    info!(
+        "Starting lease leader election with holder ID: {}",
+        holder_id
+    );
 
     let lease_api: Api<Lease> = Api::namespaced(client, &namespace);
     let lease_name = "setpoint-operator-lease";
@@ -82,9 +85,17 @@ async fn try_acquire_or_renew_lease(
                 let new_spec = LeaseSpec {
                     holder_identity: Some(holder_id.to_string()),
                     lease_duration_seconds: Some(15),
-                    acquire_time: Some(if is_us { spec.acquire_time.unwrap_or(now_micro.clone()) } else { now_micro.clone() }),
+                    acquire_time: Some(if is_us {
+                        spec.acquire_time.unwrap_or(now_micro.clone())
+                    } else {
+                        now_micro.clone()
+                    }),
                     renew_time: Some(now_micro),
-                    lease_transitions: Some(if is_us { spec.lease_transitions.unwrap_or(0) } else { spec.lease_transitions.unwrap_or(0) + 1 }),
+                    lease_transitions: Some(if is_us {
+                        spec.lease_transitions.unwrap_or(0)
+                    } else {
+                        spec.lease_transitions.unwrap_or(0) + 1
+                    }),
                 };
 
                 let mut new_lease = lease.clone();

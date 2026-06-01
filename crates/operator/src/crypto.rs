@@ -1,9 +1,9 @@
-use std::sync::{Mutex, OnceLock};
-use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256, Digest};
-use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand_core::OsRng;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+use std::sync::{Mutex, OnceLock};
 
 static SIGNING_KEY: OnceLock<SigningKey> = OnceLock::new();
 static AUDIT_LEDGERS: OnceLock<Mutex<BTreeMap<String, Vec<AuditBlock>>>> = OnceLock::new();
@@ -31,9 +31,7 @@ pub struct RegisterAuditState {
 }
 
 pub fn get_signing_key() -> &'static SigningKey {
-    SIGNING_KEY.get_or_init(|| {
-        SigningKey::generate(&mut OsRng)
-    })
+    SIGNING_KEY.get_or_init(|| SigningKey::generate(&mut OsRng))
 }
 
 pub fn get_verifying_key() -> VerifyingKey {
@@ -41,7 +39,8 @@ pub fn get_verifying_key() -> VerifyingKey {
 }
 
 pub fn get_ledger(plc_name: &str) -> Vec<AuditBlock> {
-    let ledgers = AUDIT_LEDGERS.get_or_init(|| Mutex::new(BTreeMap::new()))
+    let ledgers = AUDIT_LEDGERS
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
         .lock()
         .unwrap();
     ledgers.get(plc_name).cloned().unwrap_or_default()
@@ -52,7 +51,8 @@ pub fn generate_audit_block(
     registers: Vec<RegisterAuditState>,
     action_taken: String,
 ) -> AuditBlock {
-    let mut ledgers = AUDIT_LEDGERS.get_or_init(|| Mutex::new(BTreeMap::new()))
+    let mut ledgers = AUDIT_LEDGERS
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
         .lock()
         .unwrap();
 
