@@ -54,6 +54,8 @@ cat > "$OUT" <<EOF
 
 - Generated: ${TIMESTAMP}
 - PLC: \`${PLC_NAME}\`
+- Policy: ${PROOF_POLICY:-Alert}
+- Verdict: $(jq -r .verdict "$ARTIFACTS_DIR/proof.json")
 - Operator namespace: \`default\`
 
 ## Outcome
@@ -86,7 +88,8 @@ $(summary "$AFTER" "AFTER")
 | \`prometheus-metrics.txt\`   | Operator \`/metrics\` scrape, filtered to \`setpoint_*\` |
 | \`kubernetes-events.txt\`    | \`kubectl get events\` for the IndustrialPLC object |
 | \`operator-logs.txt\`        | Last 200 lines of operator logs |
-| \`drift-simulator.log\`      | Drift simulator output |
+| \`plc-readback.json\`        | Independent Modbus reads before, during and after injection |
+| \`mock-plc.log\`             | Independent single-register write attempts |
 | \`proof.json\`               | Machine-readable aggregate (see \`scripts/aggregate-proof.sh\`) |
 | \`report.md\`                | This file |
 EOF

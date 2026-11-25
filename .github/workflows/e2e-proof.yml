@@ -11,7 +11,20 @@ jobs:
   proof:
     name: flagship proof
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - policy: Auto
+            register: 4001
+            value: 3500
+          - policy: Alert
+            register: 4002
+            value: 9999
+          - policy: Halt
+            register: 4003
+            value: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -56,18 +69,20 @@ jobs:
         run: ./scripts/flagship-proof.sh
         env:
           ARTIFACTS_DIR: artifacts/latest
+          PROOF_POLICY: ${{ matrix.policy }}
+          DRIFT_REGISTER: ${{ matrix.register }}
+          DRIFT_VALUE: ${{ matrix.value }}
 
       - name: Verify verdict
         run: |
           jq -e '.verdict == "PASS"' artifacts/latest/proof.json
-          jq -e '.detection.registers_in_drift >= 1' artifacts/latest/proof.json
           jq -e '.detection.alert_violations == 0' artifacts/latest/proof.json
 
       - name: Upload proof artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: setpoint-proof
+          name: setpoint-proof-${{ matrix.policy }}-${{ github.sha }}
           path: artifacts/latest/
           retention-days: 30
 

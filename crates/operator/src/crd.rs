@@ -251,7 +251,13 @@ impl IndustrialPLCStatus {
         let any_drift = self.registers.iter().any(|r| !r.in_sync);
         let all_known = self.registers.iter().all(|r| r.current_value.is_some());
 
-        self.phase = if any_drift {
+        let halt_drift = self
+            .registers
+            .iter()
+            .any(|r| !r.in_sync && matches!(r.strategy, RemediationStrategy::Halt));
+        self.phase = if halt_drift {
+            PLCPhase::Failed
+        } else if any_drift {
             PLCPhase::DriftDetected
         } else if all_known && !self.registers.is_empty() {
             PLCPhase::Connected

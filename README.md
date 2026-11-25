@@ -5,8 +5,8 @@
 > resources, with per-register remediation policies and a machine-checkable
 > proof of behavior.
 
-[![CI](https://github.com/apinzon/setpoint-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/apinzon/setpoint-operator/actions/workflows/ci.yml)
-[![E2E proof](https://github.com/apinzon/setpoint-operator/actions/workflows/e2e-proof.yml/badge.svg)](https://github.com/apinzon/setpoint-operator/actions/workflows/e2e-proof.yml)
+[![CI](https://github.com/AngelP17/Setpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/AngelP17/Setpoint/actions/workflows/ci.yml)
+[![E2E proof](https://github.com/AngelP17/Setpoint/actions/workflows/e2e-proof.yml/badge.svg)](https://github.com/AngelP17/Setpoint/actions/workflows/e2e-proof.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?logo=rust)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28%2B-326CE5?logo=kubernetes)
@@ -60,8 +60,7 @@ deterministic drift on the Alert-policy register, and writes a
 binary `verdict: PASS | FAIL` plus a human-readable report. The
 same flow runs in CI on every PR; see
 [`.github/workflows/e2e-proof.yml`](.github/workflows/e2e-proof.yml).
-If `kind` is not installed, the proof script gracefully degrades
-against the current `kubectl` context.
+Use a disposable kind cluster; the proof refuses other contexts. The Alert scenario uses an independent Modbus readback and mock write-attempt log. See [claim-to-proof matrix](docs/CLAIMS.md).
 
 ## What it looks like
 
@@ -351,7 +350,7 @@ or behavior claims tied to the end-to-end demo.
 - Some historical metadata still references older repo names. For example,
   `crates/api/Cargo.toml` points to
   `https://github.com/AngelP17/fabgitops` while the rest of the workspace
-  mostly references `https://github.com/apinzon/setpoint-operator`.
+  mostly references `https://github.com/AngelP17/Setpoint`.
 - `landing/.next/` and `landing/node_modules/` are currently present in the
   working tree and should be treated as generated artifacts, not source.
 - The console demo depends on the Axum gateway on `localhost:8081`. When
@@ -367,3 +366,5 @@ or behavior claims tied to the end-to-end demo.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The CI matrix runs separate disposable kind clusters for Auto, Alert and Halt. Run locally after `kind create cluster --name setpoint-e2e`: `make flagship-proof` (Alert); override `PROOF_POLICY=Auto DRIFT_REGISTER=4001 DRIFT_VALUE=3500` or `PROOF_POLICY=Halt DRIFT_REGISTER=4003 DRIFT_VALUE=1`. No hardware safety certification is claimed.

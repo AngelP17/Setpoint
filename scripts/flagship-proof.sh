@@ -31,6 +31,10 @@ OPERATOR_POD_LABEL="app=setpoint-operator"
 MOCK_PLC_POD_LABEL="app=setpoint-mock-plc"
 CONVERGE_TIMEOUT="${CONVERGE_TIMEOUT:-90}"
 DRIFT_DURATION="${DRIFT_DURATION:-45}"
+PROOF_POLICY="${PROOF_POLICY:-Alert}"
+PROOF_CONTEXT="${PROOF_CONTEXT:-kind-setpoint-e2e}"
+FORWARD_PID=""
+trap 'if [[ -n "$FORWARD_PID" ]]; then kill "$FORWARD_PID" 2>/dev/null || true; fi' EXIT
 
 C_RESET='\033[0m'
 C_BLUE='\033[0;34m'
@@ -87,7 +91,6 @@ do_cleanup() {
     kubectl delete -f k8s/deployment-local.yaml --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete -f k8s/rbac.yaml --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete -f k8s/crd.yaml --ignore-not-found >/dev/null 2>&1 || true
-    pkill -f drift-simulator 2>/dev/null || true
     ok "Cleanup complete"
 }
 
@@ -129,18 +132,24 @@ main() {
 
     banner
 
+    # Never delete CRDs or workloads from an arbitrary cluster.
+    if [[ "$PROOF_CONTEXT" != kind-* || "$(kubectl config current-context)" != "$PROOF_CONTEXT" ]]; then
+        fail "Select dedicated disposable context $PROOF_CONTEXT (override explicitly if needed)"; exit 1
+    fi
+
     if $do_cleanup_only; then
         do_cleanup
         exit 0
     fi
 
     step "Checking prerequisites"
-    for tool in kubectl docker helm cargo jq; do
+    for tool in kubectl docker helm cargo jq python3 kind; do
         require "$tool"
     done
     ok "All prerequisites present"
 
     mkdir -p "$ARTIFACTS_DIR"
+    export ARTIFACTS_DIR DRIFT_REGISTER DRIFT_VALUE PROOF_POLICY
 
     step "Cleaning any previous proof state"
     do_cleanup
@@ -173,6 +182,8 @@ main() {
 
     step "Applying flagship sample IndustrialPLC"
     kubectl apply -f k8s/sample-plc.yaml
+    # Only one controller resource may own a register during the test.
+    kubectl delete industrialplc line-2-conveyor-plc --ignore-not-found
     ok "Sample applied"
 
     step "Waiting for operator pod to be ready"
@@ -198,22 +209,20 @@ main() {
         > "$ARTIFACTS_DIR/drift-before.json"
     ok "Saved $(relpath "$ARTIFACTS_DIR/drift-before.json")"
 
-    step "Launching drift-simulator (register @${DRIFT_REGISTER} -> ${DRIFT_VALUE}, every ${DRIFT_INTERVAL}s, for ${DRIFT_DURATION}s)"
-    ./target/release/drift-simulator \
-        --target="${MOCK_PLC_POD_LABEL}.${PROOF_NAMESPACE}.svc.cluster.local:5502" \
-        --register="$DRIFT_REGISTER" \
-        --value="$DRIFT_VALUE" \
-        --interval="$DRIFT_INTERVAL" \
-        > "$ARTIFACTS_DIR/drift-simulator.log" 2>&1 &
-    local DRIFT_PID=$!
-    echo "$DRIFT_PID" > "$ARTIFACTS_DIR/.drift-simulator.pid"
-    ok "Drift simulator running (pid $DRIFT_PID)"
-
-    step "Letting drift accumulate (${DRIFT_DURATION}s)"
-    for ((i = 0; i < DRIFT_DURATION; i += 5)); do
-        sleep 5
-        printf "    %2ds / %2ds elapsed\n" "$((i + 5))" "$DRIFT_DURATION"
+    step "Forwarding mock PLC on loopback"
+    local proof_port="${PROOF_PORT:-15502}"
+    kubectl -n "$PROOF_NAMESPACE" port-forward svc/setpoint-mock-plc "$proof_port:5502" > "$ARTIFACTS_DIR/port-forward.log" 2>&1 &
+    FORWARD_PID=$!
+    for ((i=0; i<50; i++)); do
+        if grep -q 'Forwarding from' "$ARTIFACTS_DIR/port-forward.log"; then break; fi
+        kill -0 "$FORWARD_PID" || exit 1
+        sleep 0.2
     done
+    grep -q 'Forwarding from' "$ARTIFACTS_DIR/port-forward.log"
+    step "Injecting one Modbus write and observing independent readback"
+    python3 scripts/modbus-proof.py --port "$proof_port" --register "$DRIFT_REGISTER" --value "$DRIFT_VALUE" --duration "$DRIFT_DURATION" > "$ARTIFACTS_DIR/plc-readback.json"
+    kill "$FORWARD_PID" 2>/dev/null || true
+    FORWARD_PID=""
 
     step "Capturing drift-after.json"
     kubectl get industrialplc "$PROOF_PLC" -o json \
@@ -238,22 +247,17 @@ main() {
         > "$ARTIFACTS_DIR/operator-logs.txt" 2>&1 || true
     ok "Saved $(relpath "$ARTIFACTS_DIR/operator-logs.txt")"
 
-    step "Stopping drift-simulator (pid $DRIFT_PID)"
-    if kill -0 "$DRIFT_PID" 2>/dev/null; then
-        kill "$DRIFT_PID" 2>/dev/null || true
-        sleep 1
-        kill -9 "$DRIFT_PID" 2>/dev/null || true
-    fi
-    rm -f "$ARTIFACTS_DIR/.drift-simulator.pid"
-    ok "Drift simulator stopped"
-
-    step "Generating report.md"
-    ./scripts/generate-report.sh
-    ok "Saved $(relpath "$ARTIFACTS_DIR/report.md")"
+    step "Capturing independent mock PLC write log"
+    kubectl -n "$PROOF_NAMESPACE" logs deployment/setpoint-mock-plc > "$ARTIFACTS_DIR/mock-plc.log"
 
     step "Aggregating proof.json"
     ./scripts/aggregate-proof.sh
     ok "Saved $(relpath "$ARTIFACTS_DIR/proof.json")"
+
+    step "Generating report.md"
+    ./scripts/generate-report.sh
+    ok "Saved $(relpath "$ARTIFACTS_DIR/report.md")"
+    jq -e '.verdict == "PASS"' "$ARTIFACTS_DIR/proof.json" >/dev/null
 
     printf "\n${C_GREEN}"
     cat << 'EOF'
