@@ -9,4 +9,4 @@ The flagship proof uses a disposable kind cluster and a simulated PLC, not indus
 | Alert policy does not write in the tested scenario | scripts/modbus-proof.py; mock PLC write-attempt log | plc-readback.json, mock-plc.log, proof.json |
 | Prometheus exposure | crates/operator/src/metrics.rs | prometheus-metrics.txt |
 
-Run `make flagship-proof` against a disposable kind cluster. CI uploads evidence on failure and success. Auto and Halt have policy unit tests; independent E2E verification of these policies remains follow-up work. Halt is an operator state, not a certified physical safety mechanism. Results on this branch are pending CI.
+Run `make flagship-proof` against a disposable kind cluster. CI uploads evidence on failure and success. The proposed CI matrix independently exercises all three policies in separate simulated clusters. Auto requires one correction and restoration; Alert/Halt require exactly one write attempt (injection) and persistent drift. Halt also requires Failed status. Halt is an operator state, not a certified physical safety mechanism. Results on this branch are pending CI.

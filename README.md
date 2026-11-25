@@ -366,3 +366,5 @@ or behavior claims tied to the end-to-end demo.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The CI matrix runs separate disposable kind clusters for Auto, Alert and Halt. Run locally after `kind create cluster --name setpoint-e2e`: `make flagship-proof` (Alert); override `PROOF_POLICY=Auto DRIFT_REGISTER=4001 DRIFT_VALUE=3500` or `PROOF_POLICY=Halt DRIFT_REGISTER=4003 DRIFT_VALUE=1`. No hardware safety certification is claimed.

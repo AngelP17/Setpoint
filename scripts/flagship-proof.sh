@@ -31,6 +31,10 @@ OPERATOR_POD_LABEL="app=setpoint-operator"
 MOCK_PLC_POD_LABEL="app=setpoint-mock-plc"
 CONVERGE_TIMEOUT="${CONVERGE_TIMEOUT:-90}"
 DRIFT_DURATION="${DRIFT_DURATION:-45}"
+PROOF_POLICY="${PROOF_POLICY:-Alert}"
+PROOF_CONTEXT="${PROOF_CONTEXT:-kind-setpoint-e2e}"
+FORWARD_PID=""
+trap 'if [[ -n "$FORWARD_PID" ]]; then kill "$FORWARD_PID" 2>/dev/null || true; fi' EXIT
 
 C_RESET='\033[0m'
 C_BLUE='\033[0;34m'
@@ -129,10 +133,9 @@ main() {
     banner
 
     # Never delete CRDs or workloads from an arbitrary cluster.
-    case "$(kubectl config current-context)" in
-        kind-*) ;;
-        *) fail "Select a disposable kind cluster before running the proof"; exit 1 ;;
-    esac
+    if [[ "$PROOF_CONTEXT" != kind-* || "$(kubectl config current-context)" != "$PROOF_CONTEXT" ]]; then
+        fail "Select dedicated disposable context $PROOF_CONTEXT (override explicitly if needed)"; exit 1
+    fi
 
     if $do_cleanup_only; then
         do_cleanup
@@ -146,7 +149,7 @@ main() {
     ok "All prerequisites present"
 
     mkdir -p "$ARTIFACTS_DIR"
-    export ARTIFACTS_DIR DRIFT_REGISTER DRIFT_VALUE
+    export ARTIFACTS_DIR DRIFT_REGISTER DRIFT_VALUE PROOF_POLICY
 
     step "Cleaning any previous proof state"
     do_cleanup
@@ -179,6 +182,8 @@ main() {
 
     step "Applying flagship sample IndustrialPLC"
     kubectl apply -f k8s/sample-plc.yaml
+    # Only one controller resource may own a register during the test.
+    kubectl delete industrialplc line-2-conveyor-plc --ignore-not-found
     ok "Sample applied"
 
     step "Waiting for operator pod to be ready"
@@ -207,18 +212,17 @@ main() {
     step "Forwarding mock PLC on loopback"
     local proof_port="${PROOF_PORT:-15502}"
     kubectl -n "$PROOF_NAMESPACE" port-forward svc/setpoint-mock-plc "$proof_port:5502" > "$ARTIFACTS_DIR/port-forward.log" 2>&1 &
-    local forward_pid=$!
-    trap 'kill "$forward_pid" 2>/dev/null || true' RETURN
+    FORWARD_PID=$!
     for ((i=0; i<50; i++)); do
         if grep -q 'Forwarding from' "$ARTIFACTS_DIR/port-forward.log"; then break; fi
-        kill -0 "$forward_pid" || exit 1
+        kill -0 "$FORWARD_PID" || exit 1
         sleep 0.2
     done
     grep -q 'Forwarding from' "$ARTIFACTS_DIR/port-forward.log"
     step "Injecting one Modbus write and observing independent readback"
     python3 scripts/modbus-proof.py --port "$proof_port" --register "$DRIFT_REGISTER" --value "$DRIFT_VALUE" --duration "$DRIFT_DURATION" > "$ARTIFACTS_DIR/plc-readback.json"
-    kill "$forward_pid" 2>/dev/null || true
-    trap - RETURN
+    kill "$FORWARD_PID" 2>/dev/null || true
+    FORWARD_PID=""
 
     step "Capturing drift-after.json"
     kubectl get industrialplc "$PROOF_PLC" -o json \
@@ -246,13 +250,13 @@ main() {
     step "Capturing independent mock PLC write log"
     kubectl -n "$PROOF_NAMESPACE" logs deployment/setpoint-mock-plc > "$ARTIFACTS_DIR/mock-plc.log"
 
-    step "Generating report.md"
-    ./scripts/generate-report.sh
-    ok "Saved $(relpath "$ARTIFACTS_DIR/report.md")"
-
     step "Aggregating proof.json"
     ./scripts/aggregate-proof.sh
     ok "Saved $(relpath "$ARTIFACTS_DIR/proof.json")"
+
+    step "Generating report.md"
+    ./scripts/generate-report.sh
+    ok "Saved $(relpath "$ARTIFACTS_DIR/report.md")"
     jq -e '.verdict == "PASS"' "$ARTIFACTS_DIR/proof.json" >/dev/null
 
     printf "\n${C_GREEN}"

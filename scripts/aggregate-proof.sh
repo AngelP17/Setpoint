@@ -32,40 +32,42 @@ reduce() {
 BEFORE_AGG=$(reduce "$ARTIFACTS_DIR/drift-before.json")
 AFTER_AGG=$(reduce "$ARTIFACTS_DIR/drift-after.json")
 
-# Did the operator actually detect drift on a register?
-DETECTED=$(jq --argjson addr "${DRIFT_REGISTER:-4002}" '[.status.registers[]? | select(.address == $addr and .strategy == "Alert" and .inSync == false)] | length' "$ARTIFACTS_DIR/drift-after.json")
-
-# Did any register get auto-corrected? (non-zero corrections on an Auto register)
-AUTO_CORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Auto" and .correctionsApplied > 0)] | length' "$ARTIFACTS_DIR/drift-after.json")
-
-# Alert-only registers should NOT have corrections applied
-ALERT_OVERCORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Alert" and .correctionsApplied > 0)] | length' "$ARTIFACTS_DIR/drift-after.json")
-
+# Require the exact register and compare status counters before/after.
+ADDR="${DRIFT_REGISTER:-4002}"
+POLICY="${PROOF_POLICY:-Alert}"
+VALUE="${DRIFT_VALUE:-9999}"
+before="$ARTIFACTS_DIR/drift-before.json"
+after="$ARTIFACTS_DIR/drift-after.json"
+selector='.status.registers[] | select(.address == $addr and .strategy == $policy)'
+b=$(jq -cer --argjson addr "$ADDR" --arg policy "$POLICY" "$selector" "$before")
+a=$(jq -cer --argjson addr "$ADDR" --arg policy "$POLICY" "$selector" "$after")
+DETECTED=$(jq '[.status.registers[]? | select(.inSync == false)] | length' "$after")
+AUTO_CORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Auto" and .correctionsApplied > 0)] | length' "$after")
+ALERT_OVERCORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Alert" and .correctionsApplied > 0)] | length' "$after")
+WRITE_ATTEMPTS=$(grep -Ec "MODBUS_WRITE_ATTEMPT address=$ADDR value=" "$ARTIFACTS_DIR/mock-plc.log" || true)
 VERDICT="PASS"
 REASONS=()
-# Exactly one write attempt is the test injection itself. Additional attempts
-# (even rejected writes) fail the proof.
-WRITE_ATTEMPTS=$(grep -Ec "MODBUS_WRITE_ATTEMPT address=${DRIFT_REGISTER:-4002} value=" "$ARTIFACTS_DIR/mock-plc.log" || true)
-if [[ "$WRITE_ATTEMPTS" != 1 ]] || ! jq -e --argjson value "${DRIFT_VALUE:-9999}" '(.before != $value) and (.after == $value) and ([.samples[] == $value] | all) and (.samples | length > 0)' "$ARTIFACTS_DIR/plc-readback.json" >/dev/null; then
-    VERDICT="FAIL"
-    REASONS+=("independent PLC readback or write-attempt audit failed")
-fi
-if [[ "$DETECTED" -lt 1 ]]; then
-    VERDICT="FAIL"
-    REASONS+=("no drift detected after injection")
-fi
-if [[ "$ALERT_OVERCORRECTED" -gt 0 ]]; then
-    VERDICT="FAIL"
-    REASONS+=("Alert-policy register was auto-corrected (policy violated)")
-fi
-if ! [[ "$BEFORE_AGG" =~ "\"in_sync\": true" ]]; then
-    VERDICT="FAIL"
-    REASONS+=("PLC was not in sync before drift injection")
-fi
+reject() { VERDICT="FAIL"; REASONS+=("$1"); }
+if ! jq -e '.inSync == true and .currentValue != null' <<<"$b" >/dev/null; then reject "Target register not in sync initially"; fi
+if ! jq -e --argjson before "$(jq '.driftEvents' <<<"$b")" '.driftEvents > $before' <<<"$a" >/dev/null; then reject "No drift detected on target"; fi
+if [[ "$ALERT_OVERCORRECTED" -ne 0 ]]; then reject "Alert policy was auto-corrected"; fi
+case "$POLICY" in
+    Auto)
+        if [[ "$WRITE_ATTEMPTS" != 2 ]] || ! jq -e '.before == .after and (.samples | length > 0)' "$ARTIFACTS_DIR/plc-readback.json" >/dev/null || ! jq -e --argjson before "$(jq '.correctionsApplied' <<<"$b")" '.inSync == true and .correctionsApplied == ($before + 1)' <<<"$a" >/dev/null; then reject "Auto did not independently restore drift with exactly one correction"; fi
+        ;;
+    Alert|Halt)
+        if [[ "$WRITE_ATTEMPTS" != 1 ]] || ! jq -e --argjson value "$VALUE" '(.before != $value) and (.after == $value) and ([.samples[] == $value] | all) and (.samples | length > 0)' "$ARTIFACTS_DIR/plc-readback.json" >/dev/null || ! jq -e --argjson before "$(jq '.correctionsApplied' <<<"$b")" '.inSync == false and .correctionsApplied == $before' <<<"$a" >/dev/null; then reject "$POLICY wrote or failed independent drift readback"; fi
+        if [[ "$POLICY" == Halt ]] && ! jq -e '.status.phase == "Failed"' "$after" >/dev/null; then reject "Halt did not mark resource Failed"; fi
+        ;;
+    *) reject "Unsupported policy $POLICY" ;;
+esac
 
 REASONS_JSON=$(printf '%s\n' "${REASONS[@]:-}" | jq -R . | jq -s 'map(select(. != ""))')
 
 jq -n \
+    --arg policy "$POLICY" \
+    --argjson target "$ADDR" \
+    --arg commit "$(git rev-parse HEAD)" \
     --arg plc "$PLC_NAME" \
     --arg captured_at "$TIMESTAMP" \
     --argjson before "$BEFORE_AGG" \
@@ -79,6 +81,9 @@ jq -n \
     '{
         schema: "setpoint.io/proof/v1",
         plc: $plc,
+        policy: $policy,
+        target_register: $target,
+        commit: $commit,
         captured_at: $captured_at,
         before: $before,
         after:  $after,
