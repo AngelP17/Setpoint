@@ -33,7 +33,7 @@ BEFORE_AGG=$(reduce "$ARTIFACTS_DIR/drift-before.json")
 AFTER_AGG=$(reduce "$ARTIFACTS_DIR/drift-after.json")
 
 # Did the operator actually detect drift on a register?
-DETECTED=$(jq '[.status.registers[]? | select(.inSync == false)] | length' "$ARTIFACTS_DIR/drift-after.json")
+DETECTED=$(jq --argjson addr "${DRIFT_REGISTER:-4002}" '[.status.registers[]? | select(.address == $addr and .strategy == "Alert" and .inSync == false)] | length' "$ARTIFACTS_DIR/drift-after.json")
 
 # Did any register get auto-corrected? (non-zero corrections on an Auto register)
 AUTO_CORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Auto" and .correctionsApplied > 0)] | length' "$ARTIFACTS_DIR/drift-after.json")
@@ -43,6 +43,13 @@ ALERT_OVERCORRECTED=$(jq '[.status.registers[]? | select(.strategy == "Alert" an
 
 VERDICT="PASS"
 REASONS=()
+# Exactly one write attempt is the test injection itself. Additional attempts
+# (even rejected writes) fail the proof.
+WRITE_ATTEMPTS=$(grep -Ec "MODBUS_WRITE_ATTEMPT address=${DRIFT_REGISTER:-4002} value=" "$ARTIFACTS_DIR/mock-plc.log" || true)
+if [[ "$WRITE_ATTEMPTS" != 1 ]] || ! jq -e --argjson value "${DRIFT_VALUE:-9999}" '(.before != $value) and (.after == $value) and ([.samples[] == $value] | all) and (.samples | length > 0)' "$ARTIFACTS_DIR/plc-readback.json" >/dev/null; then
+    VERDICT="FAIL"
+    REASONS+=("independent PLC readback or write-attempt audit failed")
+fi
 if [[ "$DETECTED" -lt 1 ]]; then
     VERDICT="FAIL"
     REASONS+=("no drift detected after injection")
@@ -66,6 +73,7 @@ jq -n \
     --argjson detected "$DETECTED" \
     --argjson auto_corrected "$AUTO_CORRECTED" \
     --argjson alert_overcorrected "$ALERT_OVERCORRECTED" \
+    --argjson write_attempts "$WRITE_ATTEMPTS" \
     --arg verdict "$VERDICT" \
     --argjson reasons "$REASONS_JSON" \
     '{
@@ -77,7 +85,8 @@ jq -n \
         detection: {
             registers_in_drift: $detected,
             auto_corrected:     $auto_corrected,
-            alert_violations:   $alert_overcorrected
+            alert_violations:   $alert_overcorrected,
+            mock_write_attempts: $write_attempts
         },
         verdict: $verdict,
         verdict_reasons: $reasons

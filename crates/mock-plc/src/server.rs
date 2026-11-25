@@ -89,6 +89,7 @@ impl tokio_modbus::server::Service for ModbusService {
                 }
             }
             Request::WriteSingleRegister(addr, value) => {
+                info!("MODBUS_WRITE_ATTEMPT address={} value={}", addr, value);
                 if let Ok(mut state) = self.state.lock() {
                     if let std::collections::hash_map::Entry::Occupied(mut e) =
                         state.registers.entry(addr)
